@@ -103,6 +103,8 @@
     if (a.type === 'load' && st.loop) { opts.iterations = Infinity; if (st.loop === 'swing') opts.direction = 'alternate'; }
     return box.animate(keyframes(a, box), opts);
   }
+  // a click-toggled layer that has faded out must not catch taps meant for what is under it (the live viewer hides it)
+  const hideIfFaded = box => { box.style.visibility = parseFloat(getComputedStyle(box).opacity) <= 0.01 ? 'hidden' : ''; };
 
   function setupAnimations() {
     scrollAnims = []; cleanups.forEach(f => f()); cleanups = [];
@@ -116,19 +118,22 @@
       rec.anims.forEach((a, i) => {
         const box = boxes[i]; if (!box || claimed.has(box)) return;
         claimed.add(box);
+        if (box.classList.contains('rm-static')) return;   // a refinement patch made this layer static
         box.classList.remove('invisible');           // opacity is driven by the animation from here on
         if (a.type === 'scroll') { scrollAnims.push(buildScroll(rec, a, box, top)); return; }
         const anim = timeAnim(box, a);
         if (a.type === 'load') { anim.play(); return; }
         anim.pause(); anim.currentTime = 0;
         const triggers = (a.trigger.length ? a.trigger.map(byId) : [box]).filter(Boolean);   // no trigger = the whole group
+        triggers.push(...root.querySelectorAll(`[data-rm-hover="${rec.id}"]`));              // extra triggers added by patches
         if (a.type === 'hover') {
           const on = () => { anim.playbackRate = 1; anim.play(); }, off = () => { anim.playbackRate = -1; anim.play(); };
           triggers.forEach(t => { t.addEventListener('pointerenter', on); t.addEventListener('pointerleave', off);
                                   cleanups.push(() => { t.removeEventListener('pointerenter', on); t.removeEventListener('pointerleave', off); }); });
         } else if (a.type === 'click') {
           let open = false;
-          const tog = () => { open = !open; anim.playbackRate = open ? 1 : -1; anim.play(); };
+          if (triggers.some(t => !box.contains(t))) { hideIfFaded(box); anim.addEventListener('finish', () => hideIfFaded(box)); }   // only if something else can bring it back
+          const tog = () => { open = !open; box.style.visibility = ''; anim.playbackRate = open ? 1 : -1; anim.play(); };
           triggers.forEach(t => { t.style.cursor = 'pointer'; t.addEventListener('click', tog); cleanups.push(() => t.removeEventListener('click', tog)); });
         }
         cleanups.push(() => anim.cancel());
@@ -205,7 +210,18 @@
     article.appendChild(wrap);
     wrap.style.zoom = 1 / zoom;
   }
+  // Readymag anchor links ("Work", "Scroll Up", the phone "Home"): go to a position on a page, in design units,
+  // smooth-scrolled like the live viewer; on another page, after loading it (#y<pos>)
+  const anchorOf = t => t && t.closest && t.closest('a.anchor-link[data-anchor-link-pos]');
+  addEventListener('click', e => {
+    const a = anchorOf(e.target); if (!a) return;
+    e.preventDefault();
+    const pos = +a.dataset.anchorLinkPos, n = +a.dataset.pageUri || D.num;
+    if (n === D.num) wrapper.scrollTo({ top: pos, behavior: 'smooth' });
+    else location.href = url(n) + '#y' + pos;
+  });
   addEventListener('keydown', e => {
+    if (e.key === 'Enter' && anchorOf(e.target)) { anchorOf(e.target).click(); return; }
     if (e.target.closest && e.target.closest('input, textarea')) return;
     if (e.key === 'ArrowRight' && D.num < D.total) location.href = url(D.num + 1);
     if (e.key === 'ArrowLeft' && D.num > 1) location.href = url(D.num - 1);
@@ -258,5 +274,7 @@
   }
   addEventListener('resize', layout);
   layout();
+  const jump = /^#y(\d+)$/.exec(location.hash);
+  if (jump) { wrapper.scrollTop = +jump[1]; history.replaceState(null, '', location.pathname + location.search); onScroll(); }
   window.__rm = { get zoom() { return zoom; }, get variant() { return V; }, get wrapper() { return wrapper; } };
 })();
