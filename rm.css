@@ -67,8 +67,45 @@ a:focus-visible { outline: 1px solid rgba(255, 255, 255, .7); outline-offset: 4p
 /* landing intro: the desk scene, a camera into the laptop, and the project icons on its screen */
 .rm-intro { position: absolute; inset: 0; z-index: 399; overflow: hidden; background: #000; pointer-events: none; }
 #v-phone .rm-intro { z-index: 3; }
-.rm-cam { position: absolute; inset: 0; }
-.rm-cam.rm-moving { will-change: transform; }
+.rm-plane { position: absolute; inset: 0; transform-origin: 0 0; }
+.rm-intro.rm-moving .rm-plane, .rm-intro.rm-moving .rm-icon { will-change: transform; }
+.rm-sway { animation: rm-sway var(--sway-t, 8s) ease-in-out var(--sway-d, 0s) infinite alternate; }
+@keyframes rm-sway { from { rotate: calc(var(--sway-a, 1deg) * -1); } to { rotate: var(--sway-a, 1deg); } }
+.rm-intro-item { position: absolute; }
+.rm-intro-item img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.rm-intro-shade { position: absolute; background: #000; opacity: 0; }
+.rm-intro-veil { position: absolute; inset: 0; background: #000; opacity: 0; }
+.rm-icons, .rm-intro-hint { position: absolute; inset: 0; }
+.rm-icon { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; pointer-events: auto; background: #0b0b0b; }
+.rm-icon img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.rm-intro-orig { visibility: hidden !important; }
+/* on touch screens the intro must never catch a swipe (it sits outside the page's scroller): fingers scroll through it */
+#v-phone .rm-icon, .rm-intro .rmwidget, .rm-intro .rmwidget * { pointer-events: none !important; }
+
+/* moving between pages: the old page drifts and fades, the new one settles in from the side it comes from */
+@view-transition { navigation: auto; }
+@keyframes rm-out-l { to { opacity: 0; transform: translateX(-5%) scale(.985); } } @keyframes rm-in-r { from { opacity: 0; transform: translateX(6%); } }
+@keyframes rm-out-r { to { opacity: 0; transform: translateX(5%) scale(.985); } } @keyframes rm-in-l { from { opacity: 0; transform: translateX(-6%); } }
+html:active-view-transition-type(forward)::view-transition-old(root) { animation: .42s cubic-bezier(.4, 0, .2, 1) both rm-out-l; }
+html:active-view-transition-type(forward)::view-transition-new(root) { animation: .62s cubic-bezier(.16, .8, .24, 1) .08s both rm-in-r; }
+html:active-view-transition-type(backward)::view-transition-old(root) { animation: .42s cubic-bezier(.4, 0, .2, 1) both rm-out-r; }
+html:active-view-transition-type(backward)::view-transition-new(root) { animation: .62s cubic-bezier(.16, .8, .24, 1) .08s both rm-in-l; }
+
+/* finish: frosted black top bars, images easing in, accent selection, keyboard focus */
+.rmwidget.widget-shape.rm-navbar { background-color: rgba(0, 0, 0, .62) !important; -webkit-backdrop-filter: blur(18px) saturate(160%); backdrop-filter: blur(18px) saturate(160%);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .08); }
+.rmwidget.rm-rv { opacity: 0; translate: 0 22px; transition: opacity .8s cubic-bezier(.2, .65, .25, 1), translate 1s cubic-bezier(.2, .65, .25, 1); }
+.rmwidget.rm-rv.rm-in { opacity: 1; translate: none; }
+::selection { background: rgba(128, 91, 182, .9); color: #fff; }
+a:focus-visible { outline: 1px solid rgba(255, 255, 255, .7); outline-offset: 4px; }
+
+/* landing intro: the desk scene, a camera into the laptop, and the project icons on its screen */
+.rm-intro { position: absolute; inset: 0; z-index: 399; overflow: hidden; background: #000; pointer-events: none; }
+#v-phone .rm-intro { z-index: 3; }
+.rm-plane { position: absolute; inset: 0; transform-origin: 0 0; }
+.rm-intro.rm-moving .rm-plane, .rm-intro.rm-moving .rm-icon { will-change: transform; }
+.rm-sway { animation: rm-sway var(--sway-t, 8s) ease-in-out var(--sway-d, 0s) infinite alternate; }
+@keyframes rm-sway { from { rotate: calc(var(--sway-a, 1deg) * -1); } to { rotate: var(--sway-a, 1deg); } }
 .rm-intro-item { position: absolute; }
 .rm-intro-item img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .rm-intro-shade { position: absolute; background: #000; opacity: 0; }
@@ -110,3 +147,33 @@ html.rm-menu-open .rm-menu li a { transform: none; transition-delay: calc(140ms 
 .rm-menu-foot { display: flex; justify-content: space-between; gap: 12px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, .12); opacity: 0; transition: opacity .4s ease; }
 html.rm-menu-open .rm-menu-foot { opacity: 1; transition: opacity .6s ease .35s; }
 .rm-menu-foot a { color: rgba(255, 255, 255, .62); text-decoration: none; font-size: 11px; letter-spacing: .03em; }
+
+/* loading screen (landing page, first visit in a session): her flower turning, a thin bar filling in her purple.
+   Fails open: even without the script it fades away after a few seconds. */
+.rm-loader { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; background: #000;
+  animation: rm-loader-failsafe .6s ease 6s forwards; }
+@keyframes rm-loader-failsafe { to { opacity: 0; visibility: hidden; } }
+.rm-noload .rm-loader { display: none; }
+.rm-loader.rm-done { opacity: 0; visibility: hidden; animation: none; transition: opacity .8s ease, visibility 0s linear .8s; }
+.rm-loader-in { display: flex; flex-direction: column; align-items: center; gap: 20px; transition: transform .8s cubic-bezier(.2, .7, .2, 1); }
+.rm-loader.rm-done .rm-loader-in { transform: scale(.94); }
+.rm-loader-mark { width: 34px; height: 40px; object-fit: contain; animation: rm-spin 9s linear infinite; }
+@keyframes rm-spin { to { rotate: 360deg; } }
+.rm-loader-bar { width: 76px; height: 2px; border-radius: 2px; overflow: hidden; background: rgba(255, 255, 255, .12); }
+.rm-loader-bar i { display: block; width: 100%; height: 100%; background: rgb(176, 146, 222); transform-origin: 0 50%; transform: scaleX(var(--p, .03)); transition: transform .3s ease; }
+.rm-loader-name { padding-left: .34em; font: 400 10px/1 Figtree, system-ui, sans-serif; letter-spacing: .34em; text-transform: uppercase; color: rgba(255, 255, 255, .55); }
+.rm-intro.rm-arrive { animation: rm-arrive 1.7s cubic-bezier(.16, .8, .24, 1) backwards; }
+@keyframes rm-arrive { from { scale: 1.08; opacity: 0; } }
+@media (min-width: 900px) { .rm-loader-mark { width: 42px; height: 48px; } .rm-loader-bar { width: 96px; } .rm-loader-name { font-size: 11px; } .rm-loader-in { gap: 24px; } }
+
+/* long project pages: a hairline of reading progress under the bar, and a back-to-top button after a few screens */
+.rm-progress { position: absolute; left: 0; right: 0; top: 0; height: 2px; z-index: 5001; pointer-events: none; }
+.rm-progress i { display: block; height: 100%; background: rgb(176, 146, 222); transform-origin: 0 50%; transform: scaleX(0); }
+.rm-totop { position: absolute; right: 18px; bottom: 22px; z-index: 5001; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .42); -webkit-backdrop-filter: blur(12px) saturate(150%); backdrop-filter: blur(12px) saturate(150%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14); opacity: 0; visibility: hidden; transform: translateY(8px);
+  transition: opacity .35s ease, transform .35s ease, visibility 0s linear .35s; -webkit-tap-highlight-color: transparent; }
+.rm-totop.rm-on { opacity: .85; visibility: visible; transform: none; transition: opacity .35s ease, transform .35s ease; }
+.rm-totop:hover { opacity: 1; }
+.rm-totop svg { width: 16px; height: 16px; overflow: visible; }
+.rm-totop polyline { fill: none; stroke: #fff; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }

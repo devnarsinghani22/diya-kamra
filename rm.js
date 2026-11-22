@@ -131,7 +131,7 @@
         claimed.add(box);
         if (box.classList.contains('rm-static')) return;   // a refinement patch made this layer static
         box.classList.remove('invisible');           // opacity is driven by the animation from here on
-        if (a.type === 'scroll') { scrollAnims.push(buildScroll(rec, a, box, top)); return; }
+        if (a.type === 'scroll') { const f = buildScroll(rec, a, box, top); f.box = box; scrollAnims.push(f); return; }
         const anim = timeAnim(box, a);
         if (a.type === 'load') { anim.play(); return; }
         anim.pause(); anim.currentTime = 0;
@@ -163,7 +163,8 @@
     if (Math.abs(target - curY) < 0.3) curY = target;
     const vh = wrapper.clientHeight;
     for (const f of scrollAnims) f(vh);
-    if (intro) intro.update();
+    if (intro) intro.onScroll();
+    aidsUpdate();
     if (curY !== target) requestAnimationFrame(frame); else { ticking = false; last = 0; }
   }
   function onScroll() { if (ticking) return; ticking = true; requestAnimationFrame(frame); }
@@ -213,98 +214,187 @@
   }
 
 
-  // ---------- landing intro (Dev, 22 Nov): scrolling zooms into Diya's laptop ----------
-  // A copy of the desk scene sits over the page. Scrolling flies the camera into the laptop screen, where small project
-  // icons wait; as it zooms they grow into the work grid's own tiles, landing exactly on them, and the scene dissolves.
+  // ---------- landing intro (Dev, 22 Nov): one scroll flies into Diya's laptop ----------
+  // A copy of the desk scene sits over the page. The first scroll plays a short camera move (time-based, so it never
+  // stops half-way): the camera dollies into the laptop screen through layers of depth, the small project icons on
+  // the screen grow into the work grid's own tiles, landing exactly on them, and the scene dissolves into the page.
+  // Scrolling back up above the grid plays it in reverse. It fails open: a watchdog always finishes a move, and the
+  // icons follow the real tiles wherever the page actually is.
   let intro = null;
+  const PLANES = [   // back to front: depth (how fast it grows as the camera moves in) and how far it follows the pointer
+    { name: 'wall', d: 0.92, px: -0.25 }, { name: 'laptop', d: 1, px: 0 }, { name: 'side', d: 1.22, px: 0.55 },
+    { name: 'girl', d: 1.08, px: 0.35 }, { name: 'plants', d: 1.6, px: 1.1 }];
   function setupIntro() {
     if (intro) { intro.destroy(); intro = null; }
     const cfg = D.variants[V].intro;
     if (!cfg || REDUCED) return;
-    const VW = article.clientWidth, VH = article.clientHeight;
+    const planeOf = id => (cfg.planes && Object.keys(cfg.planes).find(k => cfg.planes[k].includes(id))) || (id === cfg.laptop ? 'laptop' : 'side');
     const layer = document.createElement('div'); layer.className = 'rm-intro';
-    const cam = document.createElement('div'); cam.className = 'rm-cam'; layer.appendChild(cam);
+    const planes = PLANES.map(pl => { const el = document.createElement('div'); el.className = 'rm-plane rm-plane-' + pl.name; layer.appendChild(el); return { ...pl, el }; });
+    const plane = name => planes.find(p => p.name === name);
     const outer = el => { let o = el; while (o.parentElement && (o.parentElement.classList.contains('animation-container') || o.parentElement.tagName === 'A')) o = o.parentElement; return o; };
-    const hidden = [], moved = [];
-    let screen = null, shade = null;
+    const hidden = [], moved = [], items = [];
+    let laptopItem = null, shade = null;
     for (const it of cfg.items) {
       const el = wid(it.id), im0 = el && el.querySelector('img');
       if (!im0) continue;
-      const left = it.c ? VW / 2 + it.x - it.w / 2 : it.x, top = it.c ? VH / 2 + it.y - it.h / 2 : it.y;
-      const box = document.createElement('div'); box.className = 'rm-intro-item';
-      Object.assign(box.style, { left: left + 'px', top: top + 'px', width: it.w + 'px', height: it.h + 'px', zIndex: it.z });
-      const img = new Image(); img.alt = ''; img.src = im0.getAttribute('src'); img.style.objectFit = getComputedStyle(im0).objectFit;
-      box.appendChild(img); cam.appendChild(box);
+      const box = document.createElement('div'); box.className = 'rm-intro-item'; box.style.zIndex = it.z;
+      const img = new Image(); img.alt = ''; img.decoding = 'async'; img.src = im0.getAttribute('src'); img.style.objectFit = getComputedStyle(im0).objectFit;
+      box.appendChild(img);
+      const pl = plane(planeOf(it.id)); pl.el.appendChild(box);
+      items.push({ it, box, plane: pl.name });
       const o = outer(el); o.classList.add('rm-intro-orig'); hidden.push(o);
       if (it.id === cfg.laptop) {
-        const [a, b, c, d] = cfg.screen;
-        screen = { x: left + a * it.w, y: top + b * it.h, w: (c - a) * it.w, h: (d - b) * it.h };
-        shade = document.createElement('div'); shade.className = 'rm-intro-shade';
-        Object.assign(shade.style, { left: screen.x + 'px', top: screen.y + 'px', width: screen.w + 'px', height: screen.h + 'px', zIndex: it.z });
-        cam.appendChild(shade);
+        laptopItem = it;
+        shade = document.createElement('div'); shade.className = 'rm-intro-shade'; shade.style.zIndex = it.z; pl.el.appendChild(shade);
+      }
+      if (pl.name === 'plants') {                               // a slow, slightly different sway for each plant
+        const k = items.length;
+        box.classList.add('rm-sway'); box.style.transformOrigin = it.x < 0 ? '0% 25%' : '100% 25%'; box.style.setProperty('--sway-t', (7 + (k * 1.37) % 4).toFixed(2) + 's');
+        box.style.setProperty('--sway-d', (-(k * 0.91) % 5).toFixed(2) + 's'); box.style.setProperty('--sway-a', (0.8 + (k * 0.53) % 1).toFixed(2) + 'deg');
       }
     }
-    // the work grid's tiles, in reading order
     const tiles = [...root.querySelectorAll('.content-scroll-wrapper a.maglink > .rmwidget.widget-picture')]
       .filter(t => parseFloat(t.style.width) >= 200 && !t.closest('.rm-intro-orig'))
       .map(t => ({ href: t.parentElement.getAttribute('href'), img: t.querySelector('img'), x: parseFloat(t.style.left), y: parseFloat(t.style.top), w: parseFloat(t.style.width), h: parseFloat(t.style.height) }))
       .filter(t => t.img).sort((p, q) => p.y - q.y || p.x - q.x).slice(0, 8);
-    if (!screen || !tiles.length) { hidden.forEach(o => o.classList.remove('rm-intro-orig')); return; }
-    // "Scroll to enter" and its arrow scroll with the page on the phone: lift them above the scene, fading as you go
+    if (!laptopItem || !tiles.length) { hidden.forEach(o => o.classList.remove('rm-intro-orig')); layer.remove(); return; }
+    scrollAnims = scrollAnims.filter(f => !(f.box && f.box.closest('.rm-intro-orig')));   // their originals are hidden now
+    // "Scroll to enter" and its arrow scroll with the page on the phone: lift them above the scene
     const hint = document.createElement('div'); hint.className = 'rm-intro-hint'; layer.appendChild(hint);
     root.querySelectorAll('.content-scroll-wrapper .page-content-container > .animation-container, .content-scroll-wrapper .page-content-container > .rmwidget').forEach(o => {
       const w = o.matches('.rmwidget') ? o : o.querySelector('.rmwidget');
       if (!w || w.matches('.widget-picture') || o.classList.contains('rm-intro-orig')) return;
       if ((parseFloat(o.style.top) || 0) < 300) { moved.push([o, o.parentElement, o.nextSibling]); hint.appendChild(o); }
     });
-    // small icons on the laptop screen: two rows of four, near the top (her head covers the lower middle)
-    const cols = 4, iw = screen.w * 0.15, gap = (screen.w - cols * iw) / (cols + 1);
-    const slots = tiles.map((t, i) => { const h = iw * t.h / t.w, r = Math.floor(i / cols);
-      return { x: screen.x + gap + (i % cols) * (iw + gap), y: screen.y + screen.h * 0.11 + r * (h + screen.h * 0.07), w: iw }; });
-    const veil = document.createElement('div'); veil.className = 'rm-intro-veil'; layer.appendChild(veil);   // the whole scene fades to black under the icons
-    const icons = document.createElement('div'); icons.className = 'rm-icons'; layer.appendChild(icons);
-    const els = tiles.map(t => {
+    const veil = document.createElement('div'); veil.className = 'rm-intro-veil'; layer.appendChild(veil);
+    const iconsEl = document.createElement('div'); iconsEl.className = 'rm-icons'; layer.appendChild(iconsEl);
+    const icons = tiles.map(t => {
       t.img.loading = 'eager';                                   // the grid must be ready under the scene when it dissolves
       const a = document.createElement('a'); a.className = 'rm-icon'; a.href = t.href; a.setAttribute('aria-hidden', 'true'); a.tabIndex = -1;
       a.style.width = t.w + 'px'; a.style.height = t.h + 'px';
-      const im = new Image(); im.alt = ''; im.src = t.img.getAttribute('src'); a.appendChild(im); icons.appendChild(a); return a;
+      const im = new Image(); im.alt = ''; im.src = t.img.getAttribute('src'); a.appendChild(im); iconsEl.appendChild(a); return a;
     });
     if (V === 'phone') article.insertBefore(layer, article.querySelector('.fixed-position-container-top')); else article.appendChild(layer);
-    const O = { x: screen.x + screen.w / 2, y: screen.y + screen.h / 2 };
-    const K = Math.max(VW / screen.w, VH / screen.h) * 1.06;     // zoom at which the screen fills the window
-    cam.style.transformOrigin = `${O.x}px ${O.y}px`;
-    const end = cfg.end;
-    let idle = 0;
-    function update() {
-      // GPU-scale while moving; once still, let the browser redraw the scene sharp at its current size
-      cam.classList.add('rm-moving'); clearTimeout(idle); idle = setTimeout(() => cam.classList.remove('rm-moving'), 180);
-      // 0 -> .62: the camera flies into the screen; .45 -> .7: the screen darkens to the page's black;
-      // .55 -> .95: the icons, now big, rearrange into the grid; .9 -> 1: the scene dissolves into the real page
-      const p = clamp01(curY / end), e = easeIO(clamp01(p / 0.62)), s = Math.pow(K, e);
-      const tx = (VW / 2 - O.x) * e, ty = (VH / 2 - O.y) * e;
-      cam.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`;
-      shade.style.opacity = clamp01((p - 0.45) / 0.25);
-      veil.style.opacity = clamp01((p - 0.52) / 0.2);
-      hint.style.opacity = 1 - clamp01(p * 6);
-      const q = easeIO(clamp01((p - 0.55) / 0.4)), st = wrapper.scrollTop;
-      els.forEach((a, i) => {
-        const sl = slots[i], t = tiles[i];
-        const vx = O.x + s * (sl.x - O.x) + tx, vy = O.y + s * (sl.y - O.y) + ty, vw = sl.w * s;   // icon as seen through the camera
+
+    // ---- geometry (re-measured on resize, e.g. a phone's address bar showing or hiding) ----
+    let G = null;
+    function measure() {
+      const VW = article.clientWidth, VH = article.clientHeight;
+      let topMin = Infinity, bottom = 0;
+      for (const { it, box } of items) {
+        const left = it.c ? VW / 2 + it.x - it.w / 2 : it.x, top = it.c ? VH / 2 + it.y - it.h / 2 : it.y;
+        Object.assign(box.style, { left: left + 'px', top: top + 'px', width: it.w + 'px', height: it.h + 'px' });
+        it._l = left; it._t = top;
+        if (it.id !== cfg.wall) { bottom = Math.max(bottom, top + it.h); topMin = Math.min(topMin, top); }
+      }
+      // tall screens (phones, tablets upright): scale the drawing up about its middle so it fills the height
+      const b = Math.min(1.4, Math.max(1, VH / Math.max(1, bottom - Math.max(0, topMin))));
+      const [a1, b1, c1, d1] = cfg.screen, L = laptopItem;
+      const screen = { x: L._l + a1 * L.w, y: L._t + b1 * L.h, w: (c1 - a1) * L.w, h: (d1 - b1) * L.h };
+      Object.assign(shade.style, { left: screen.x + 'px', top: screen.y + 'px', width: screen.w + 'px', height: screen.h + 'px' });
+      const Bc = b > 1 ? { x: VW / 2, y: (Math.max(0, topMin) + bottom) / 2 } : { x: 0, y: 0 }, Bo = b > 1 ? { x: VW / 2, y: VH / 2 } : Bc;
+      const B = p => ({ x: Bo.x + (p.x - Bc.x) * b, y: Bo.y + (p.y - Bc.y) * b });
+      const O = B({ x: screen.x + screen.w / 2, y: screen.y + screen.h / 2 });          // screen centre, as seen at rest
+      const K = Math.max(VW / (screen.w * b), VH / (screen.h * b)) * 1.06;
+      const cols = 4, iw = screen.w * 0.15, gap = (screen.w - cols * iw) / (cols + 1);
+      const slots = tiles.map((t, i) => { const h = iw * t.h / t.w, r = Math.floor(i / cols);
+        return { x: screen.x + gap + (i % cols) * (iw + gap), y: screen.y + screen.h * 0.11 + r * (h + screen.h * 0.07), w: iw }; });
+      G = { VW, VH, b, Bc, Bo, O, K, slots };
+    }
+    // a plane at depth d, camera progress e: scene point x -> O + t + s (B(x) - O), with s = K^(e d) and
+    // B(x) = Bo + b (x - Bc); as one affine map: x -> A + k x
+    function planeMap(d, e, par) {
+      const s = Math.pow(G.K, e * d), t = { x: (G.VW / 2 - G.O.x) * e + par.x, y: (G.VH / 2 - G.O.y) * e + par.y };
+      const k = s * G.b;
+      return { k, A: { x: G.O.x + t.x + s * (G.Bo.x - G.O.x) - k * G.Bc.x, y: G.O.y + t.y + s * (G.Bo.y - G.O.y) - k * G.Bc.y } };
+    }
+
+    // ---- drawing one moment of the move ----
+    let P = 0, ptr = { x: 0, y: 0 }, ptrT = { x: 0, y: 0 }, idle = 0;
+    function render() {
+      if (!G) return;
+      layer.classList.add('rm-moving'); clearTimeout(idle); idle = setTimeout(() => layer.classList.remove('rm-moving'), 200);
+      // 0 -> .62 the camera flies in; .45 -> .72 screen and scene darken; .55 -> .95 icons rearrange into the grid;
+      // .9 -> 1 the scene dissolves into the real page
+      const e = easeIO(clamp01(P / 0.62));
+      let lap = null;
+      for (const pl of planes) {
+        const par = { x: ptr.x * pl.px * 9 * (1 - e), y: ptr.y * pl.px * 6 * (1 - e) };
+        const m = planeMap(pl.d, e, par);
+        pl.el.style.transform = `translate(${m.A.x}px, ${m.A.y}px) scale(${m.k})`;
+        if (pl.d > 1.05) pl.el.style.opacity = 1 - clamp01((m.k - 2.4) / 2.6);   // near layers rush past and dissolve
+        if (pl.name === 'laptop') lap = m;
+      }
+      shade.style.opacity = clamp01((P - 0.45) / 0.25);
+      veil.style.opacity = clamp01((P - 0.52) / 0.2);
+      hint.style.opacity = 1 - clamp01(P * 6);
+      const q = easeIO(clamp01((P - 0.55) / 0.4)), st = wrapper.scrollTop;
+      icons.forEach((a, i) => {
+        const sl = G.slots[i], t = tiles[i];
+        const vx = lap.A.x + lap.k * sl.x, vy = lap.A.y + lap.k * sl.y, vw = sl.w * lap.k;        // on the laptop screen
         const x = vx + (t.x - vx) * q, y = vy + (t.y - st - vy) * q, k = (vw + (t.w - vw) * q) / t.w;  // ...growing onto its tile
         a.style.transform = `translate(${x}px, ${y}px) scale(${k})`;
         a.style.borderRadius = (2.5 * (1 - q)) / k + 'px';
       });
-      layer.style.opacity = 1 - clamp01((p - 0.9) / 0.1);
-      layer.style.visibility = p >= 1 ? 'hidden' : '';
+      layer.style.opacity = 1 - clamp01((P - 0.9) / 0.1);
+      layer.style.visibility = P >= 1 ? 'hidden' : '';
     }
+
+    // ---- the moves ----
+    // where the move lands: her Work position, or on the phone just clear of the nav bar above the first tile
+    const END = V === 'phone' ? Math.min(cfg.end, Math.round(tiles[0].y - 62)) : cfg.end, FWD = 1900, BACK = 1500, REV = END - 140;
+    let state = 'scene', anim = null, cooldown = 0, dog = 0;
+    function play(to) {
+      if (anim) return;
+      state = to ? 'toGrid' : 'toScene';
+      const from = P, span = Math.abs(to - from) * (to ? FWD : BACK);
+      const t0 = performance.now();
+      if (to && wrapper.scrollTop < END) wrapper.scrollTo({ top: END, behavior: 'smooth' });   // only towards the grid, never pulled back
+      if (!to && wrapper.scrollTop > 2) wrapper.scrollTo({ top: 0, behavior: 'smooth' });
+      const finish = () => { cancelAnimationFrame(anim); anim = null; clearTimeout(dog); P = to; render(); state = to ? 'grid' : 'scene'; cooldown = performance.now() + 600; };
+      const step = now => { P = from + (to - from) * clamp01((now - t0) / Math.max(1, span)); render(); if (P === to) finish(); else anim = requestAnimationFrame(step); };
+      anim = requestAnimationFrame(step);
+      dog = setTimeout(() => { if (anim) finish(); }, span + 1500);   // never leave the page under the scene
+    }
+    let lastY = wrapper.scrollTop;
+    function onScrollIntro() {
+      const y = wrapper.scrollTop, dir = y - lastY; lastY = y;
+      if (anim || performance.now() < cooldown) return;
+      if (state === 'scene' && y > 6 && dir > 0) play(1);
+      else if (state === 'grid' && y < REV && dir < 0) play(0);   // only when actually heading back up
+      else render();                                              // keep the (hidden) icons tracking the tiles
+    }
+    const onHide = () => { if (document.hidden && anim) { P = state === 'toGrid' ? 1 : 0; render(); cancelAnimationFrame(anim); anim = null; state = P ? 'grid' : 'scene'; } };
+    document.addEventListener('visibilitychange', onHide);
+    // laptops: the scene leans a little toward the pointer while it is at rest
+    let pAnim = 0;
+    const onMove = e => {
+      if (P > 0 || e.pointerType === 'touch') return;
+      ptrT = { x: (e.clientX / innerWidth) * 2 - 1, y: (e.clientY / innerHeight) * 2 - 1 };
+      if (!pAnim) pAnim = requestAnimationFrame(function glide() {
+        ptr.x += (ptrT.x - ptr.x) * 0.08; ptr.y += (ptrT.y - ptr.y) * 0.08; render();
+        pAnim = Math.abs(ptrT.x - ptr.x) + Math.abs(ptrT.y - ptr.y) > 0.002 ? requestAnimationFrame(glide) : 0;
+      });
+    };
+    if (matchMedia('(hover: hover)').matches) addEventListener('pointermove', onMove, { passive: true });
+
+    measure();
+    if (wrapper.scrollTop >= END - 2) { P = 1; state = 'grid'; }   // arrived at the grid (#y..., Work, back from a project)
+    render();
     intro = {
-      update,
+      variant: V, onScroll: onScrollIntro, measure() { measure(); render(); },
+      images: [...layer.querySelectorAll('img')],
+      arrive() { if (P > 0) return; layer.classList.add('rm-arrive'); layer.addEventListener('animationend', () => layer.classList.remove('rm-arrive'), { once: true }); },
+      workTop: pos => (pos === cfg.end ? END : pos),   // her Work anchor lands where the move lands
+      get state() { return state; },
       destroy() {
+        cancelAnimationFrame(anim); cancelAnimationFrame(pAnim); clearTimeout(dog);
+        removeEventListener('pointermove', onMove); document.removeEventListener('visibilitychange', onHide);
         layer.remove(); hidden.forEach(o => o.classList.remove('rm-intro-orig'));
         moved.forEach(([o, par, next]) => par.insertBefore(o, next && next.parentElement === par ? next : null));
       },
     };
-    update();
   }
 
   // ---------- finish ----------
@@ -340,6 +430,26 @@
   }
 
 
+
+  // ---------- long project pages: reading progress + back to top ----------
+  let progBits = [];
+  function pageAids() {
+    progBits.forEach(x => x.remove()); progBits = [];
+    if (D.num === 1) return;
+    const bar = document.createElement('div'); bar.className = 'rm-progress'; bar.innerHTML = '<i></i>';
+    const up = document.createElement('button'); up.className = 'rm-totop'; up.type = 'button'; up.setAttribute('aria-label', 'Back to top');
+    up.innerHTML = '<svg viewBox="0 0 16 16"><polyline points="3,10 8,5 13,10"/></svg>';
+    up.addEventListener('click', () => wrapper.scrollTo({ top: 0, behavior: 'smooth' }));
+    article.append(bar, up); progBits = [bar, up];
+    bar.style.zoom = up.style.zoom = 1 / zoom;                 // sized in screen pixels, whatever the page scale
+  }
+  function aidsUpdate() {
+    if (!progBits.length) return;
+    const [bar, up] = progBits, max = wrapper.scrollHeight - wrapper.clientHeight;
+    bar.firstChild.style.transform = `scaleX(${max > 0 ? wrapper.scrollTop / max : 0})`;
+    up.classList.toggle('rm-on', wrapper.scrollTop > wrapper.clientHeight * 2.5);
+  }
+
   // ---------- phone menu (Dev, 22 Nov: the solid purple panel "looks very ew") ----------
   // Readymag's hamburger, cross and panel give way to a full-screen frosted-black menu with large type. Same
   // destinations as hers (About, Contact), plus Work, which jumps to the landing page's work grid.
@@ -373,7 +483,7 @@
       const a = document.createElement('a'); a.href = it.href;
       a.innerHTML = `<small>${String(i + 1).padStart(2, '0')}</small><span></span>`; a.lastChild.textContent = it.label;
       a.addEventListener('click', e => {
-        if (it.work) { e.preventDefault(); wrapper.scrollTo({ top: workPos, behavior: 'smooth' }); }
+        if (it.work) { e.preventDefault(); wrapper.scrollTo({ top: intro ? intro.workTop(workPos) : workPos, behavior: 'smooth' }); }
         closeMenu(); btn.setAttribute('aria-expanded', 'false');
       });
       liEl.appendChild(a); ul.appendChild(liEl);
@@ -413,7 +523,7 @@
     const a = anchorOf(e.target); if (!a) return;
     e.preventDefault();
     const pos = +a.dataset.anchorLinkPos, n = +a.dataset.pageUri || D.num;
-    if (n === D.num) wrapper.scrollTo({ top: pos, behavior: 'smooth' });
+    if (n === D.num) wrapper.scrollTo({ top: intro ? intro.workTop(pos) : pos, behavior: 'smooth' });
     else location.href = url(n) + '#y' + pos;
   });
   addEventListener('keydown', e => {
@@ -467,11 +577,38 @@
     const aw = innerWidth / zoom, ah = innerHeight / zoom;
     article.style.width = aw + 'px'; article.style.height = ah + 'px';
     bounds.style.minHeight = ah + 'px';
-    arrows(); setupIntro(); reveals(); onScroll();
+    arrows(); pageAids(); if (!intro || intro.variant !== V) setupIntro(); else intro.measure(); reveals(); onScroll();
   }
   addEventListener('resize', layout);
   layout();
+  // ---------- loading screen (landing page, first visit in a session) ----------
+  (function loader() {
+    const el = document.getElementById('rm-loader');
+    if (!el) return;
+    if (html.classList.contains('rm-noload')) { el.remove(); return; }
+    el.style.zoom = 1 / zoom;                                  // keep its size whatever the page scale
+    const bar = el.querySelector('.rm-loader-bar i');
+    const list = intro ? intro.images : [...root.querySelectorAll('img')].slice(0, 16);
+    const t0 = performance.now(); let shown = 0.03, ended = false;
+    const finish = () => {
+      if (ended) return; ended = true;
+      bar.style.setProperty('--p', 1);
+      setTimeout(() => {
+        el.classList.add('rm-done'); if (intro) intro.arrive();
+        try { sessionStorage.setItem('rm-seen', '1'); } catch (e) {}
+        setTimeout(() => el.remove(), 1000);
+      }, 320);
+    };
+    (function tick() {
+      if (ended) return;
+      const frac = list.length ? list.filter(im => im.complete).length / list.length : 1, t = performance.now() - t0;
+      shown += (Math.max(frac, Math.min(0.9, t / 4000)) - shown) * 0.15;       // never looks stuck
+      bar.style.setProperty('--p', shown.toFixed(3));
+      if ((frac >= 1 && t > 1200) || t > 5000) finish(); else requestAnimationFrame(tick);
+    })();
+    setTimeout(finish, 5600);
+  })();
   const jump = /^#y(\d+)$/.exec(location.hash);
-  if (jump) { wrapper.scrollTop = curY = +jump[1]; history.replaceState(null, '', location.pathname + location.search); onScroll(); }
+  if (jump) { wrapper.scrollTop = curY = intro ? intro.workTop(+jump[1]) : +jump[1]; history.replaceState(null, '', location.pathname + location.search); if (intro) intro.measure(); onScroll(); }
   window.__rm = { get zoom() { return zoom; }, get variant() { return V; }, get wrapper() { return wrapper; } };
 })();
