@@ -77,6 +77,8 @@ a:focus-visible { outline: 1px solid rgba(255, 255, 255, .7); outline-offset: 4p
 .rm-icon { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; pointer-events: auto; background: #0b0b0b; }
 .rm-icon img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .rm-intro-orig { visibility: hidden !important; }
+/* on touch screens the intro must never catch a swipe (it sits outside the page's scroller): fingers scroll through it */
+#v-phone .rm-icon, .rm-intro .rmwidget, .rm-intro .rmwidget * { pointer-events: none !important; }
 
 /* horizontal page slide between pages */
 @view-transition { navigation: auto; }
