@@ -447,6 +447,17 @@
     up.addEventListener('click', () => wrapper.scrollTo({ top: 0, behavior: 'smooth' }));
     article.append(bar, up); progBits = [bar, up];
     bar.style.zoom = up.style.zoom = 1 / zoom;                 // sized in screen pixels, whatever the page scale
+    // the project's name, small and quiet, in the middle of the top bar
+    const nb = [...root.querySelectorAll('.rm-navbar')].map(el => ({ el, r: el.getBoundingClientRect() })).sort((p, q) => (q.r.bottom - Math.max(0, q.r.top)) - (p.r.bottom - Math.max(0, p.r.top)))[0];
+    if (D.name && nb) {
+      const f = article.getBoundingClientRect().width / article.clientWidth || 1, a = article.getBoundingClientRect(), r = nb.r;
+      const top = Math.max(0, (r.top - a.top) / f), bottom = (r.bottom - a.top) / f;
+      if (bottom - top > 12) {
+        const nm = document.createElement('div'); nm.className = 'rm-navtitle'; nm.innerHTML = '<span></span>'; nm.firstChild.textContent = D.name;
+        Object.assign(nm.style, { top: top + 'px', height: (bottom - top) + 'px' });
+        article.appendChild(nm); progBits.push(nm);
+      }
+    }
   }
   function aidsUpdate() {
     if (!progBits.length) return;

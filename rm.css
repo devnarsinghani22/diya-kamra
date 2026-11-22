@@ -177,3 +177,9 @@ html.rm-menu-open .rm-menu-foot { opacity: 1; transition: opacity .6s ease .35s;
 .rm-totop:hover { opacity: 1; }
 .rm-totop svg { width: 16px; height: 16px; overflow: visible; }
 .rm-totop polyline { fill: none; stroke: #fff; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.rm-navtitle { position: absolute; left: 50%; transform: translateX(-50%); z-index: 5001; max-width: 46%; display: flex; align-items: center; justify-content: center;
+  pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font: 400 9px/1 Figtree, system-ui, sans-serif; letter-spacing: .06em;
+  color: rgba(255, 255, 255, .58); animation: rm-fade-in .8s ease .3s backwards; }
+.rm-navtitle span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#v-phone .rm-navtitle { max-width: 50%; font-size: 9.5px; padding-top: 3px; box-sizing: border-box; }
+@keyframes rm-fade-in { from { opacity: 0; } }
