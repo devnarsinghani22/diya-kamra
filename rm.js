@@ -365,6 +365,9 @@
       else if (state === 'grid' && y < REV && dir < 0) play(0);   // only when actually heading back up
       else render();                                              // keep the (hidden) icons tracking the tiles
     }
+    // a tap or click on the scene (not on a link) also enters
+    const onTap = e => { if (state === 'scene' && !anim && !(e.target.closest && e.target.closest('a, button'))) { lastY = wrapper.scrollTop; play(1); } };
+    wrapper.addEventListener('click', onTap);
     const onHide = () => { if (document.hidden && anim) { P = state === 'toGrid' ? 1 : 0; render(); cancelAnimationFrame(anim); anim = null; state = P ? 'grid' : 'scene'; } };
     document.addEventListener('visibilitychange', onHide);
     // laptops: the scene leans a little toward the pointer while it is at rest
@@ -390,7 +393,7 @@
       get state() { return state; },
       destroy() {
         cancelAnimationFrame(anim); cancelAnimationFrame(pAnim); clearTimeout(dog);
-        removeEventListener('pointermove', onMove); document.removeEventListener('visibilitychange', onHide);
+        removeEventListener('pointermove', onMove); document.removeEventListener('visibilitychange', onHide); wrapper.removeEventListener('click', onTap);
         layer.remove(); hidden.forEach(o => o.classList.remove('rm-intro-orig'));
         moved.forEach(([o, par, next]) => par.insertBefore(o, next && next.parentElement === par ? next : null));
       },
