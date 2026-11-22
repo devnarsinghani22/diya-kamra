@@ -24,6 +24,11 @@
   }
 
   let V = null, root, article, wrapper, bounds, zoom = 1, scrollAnims = [], cleanups = [];
+  const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let curY = 0;                   // smoothed scroll position that scroll-linked motion follows (see frame())
+  const wid = id => root.querySelector(`.rmwidget[data-id="${id}"]`);
+  const clamp01 = t => Math.min(1, Math.max(0, t));
+  const easeIO = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
   // animation-containers wrapping a widget, outermost first: one per animation that has steps
   function containersOf(el) {
@@ -64,10 +69,15 @@
     }
     const uses = p => a.steps.some(st => st['use_' + p]);
     const useMove = uses('move'), useRot = uses('rotate'), useScale = uses('scale'), useOp = uses('opacity');
+    // refinement: land a pinned, centre-anchored flyer at a fixed height whatever the screen height (the pencil cup
+    // flies into the nav bar; on 16:10 laptops the original path ended below the bar, over the work grid)
+    const landY = box.dataset.rmLandY !== undefined ? +box.dataset.rmLandY : null;
+    const pm = landY === null ? null : /^M\s*([-\d.]+)\s+([-\d.]+).*?([-\d.]+)\s+([-\d.]+)\s*$/.exec(((/path\("([^"]*)"\)/.exec(box.style.offsetPath || '') || [])[1] || '').trim());
+    const totalLen = steps.reduce((t, k) => t + k.len, 0);
     return vh => {
       const sp = st0.start_point || 'bottom', off = st0.start_offset || 0;
       const base = rec.fixed ? 0 : Math.max(0, (sp === 'top' ? y : sp === 'center' ? y - vh / 2 : y - vh));
-      const s = wrapper.scrollTop - base - off;
+      const s = curY - base - off;
       let dist = 0; const cur = { ...init };
       for (const k of steps) {
         const e = k.ease(Math.min(Math.max((s - k.off) / k.dur, 0), 1));
@@ -80,6 +90,7 @@
         if (s < k.off) break;
       }
       if (useMove) box.style.offsetDistance = dist + 'px';
+      if (pm && totalLen) box.style.translate = `0 ${(landY - (vh / 2 + parseFloat(box.style.marginTop || 0) + +pm[4])) * dist / totalLen}px`;
       if (useRot || useScale) box.style.transform = `rotate(${cur.rotate}deg) scale(${cur.scale / 100})`;
       if (useOp) { box.style.opacity = cur.opacity / 100; box.style.visibility = cur.opacity <= 0.5 ? 'hidden' : ''; }   // faded-out layers must not block the pointer
     };
@@ -144,11 +155,18 @@
     }
   }
 
-  let ticking = false;
-  function onScroll() {
-    if (ticking) return; ticking = true;
-    requestAnimationFrame(() => { ticking = false; const vh = wrapper.clientHeight; for (const f of scrollAnims) f(vh); });
+  // Scroll-linked motion eases toward the real scroll position instead of jumping with each wheel notch or flick.
+  let ticking = false, last = 0;
+  function frame(now) {
+    const target = wrapper.scrollTop, dt = Math.min(64, last ? now - last : 16.7); last = now;
+    curY += (target - curY) * (REDUCED ? 1 : 1 - Math.pow(0.8, dt / 16.7));
+    if (Math.abs(target - curY) < 0.3) curY = target;
+    const vh = wrapper.clientHeight;
+    for (const f of scrollAnims) f(vh);
+    if (intro) intro.update();
+    if (curY !== target) requestAnimationFrame(frame); else { ticking = false; last = 0; }
   }
+  function onScroll() { if (ticking) return; ticking = true; requestAnimationFrame(frame); }
   // Safari pauses muted autoplay video it wrongly thinks is off-screen (scaled, scrolled pages): restart any that is
   // actually on screen, unless the viewer paused it.
   setInterval(() => {
@@ -194,12 +212,173 @@
     });
   }
 
+
+  // ---------- landing intro (Dev, 22 Nov): scrolling zooms into Diya's laptop ----------
+  // A copy of the desk scene sits over the page. Scrolling flies the camera into the laptop screen, where small project
+  // icons wait; as it zooms they grow into the work grid's own tiles, landing exactly on them, and the scene dissolves.
+  let intro = null;
+  function setupIntro() {
+    if (intro) { intro.destroy(); intro = null; }
+    const cfg = D.variants[V].intro;
+    if (!cfg || REDUCED) return;
+    const VW = article.clientWidth, VH = article.clientHeight;
+    const layer = document.createElement('div'); layer.className = 'rm-intro';
+    const cam = document.createElement('div'); cam.className = 'rm-cam'; layer.appendChild(cam);
+    const outer = el => { let o = el; while (o.parentElement && (o.parentElement.classList.contains('animation-container') || o.parentElement.tagName === 'A')) o = o.parentElement; return o; };
+    const hidden = [], moved = [];
+    let screen = null, shade = null;
+    for (const it of cfg.items) {
+      const el = wid(it.id), im0 = el && el.querySelector('img');
+      if (!im0) continue;
+      const left = it.c ? VW / 2 + it.x - it.w / 2 : it.x, top = it.c ? VH / 2 + it.y - it.h / 2 : it.y;
+      const box = document.createElement('div'); box.className = 'rm-intro-item';
+      Object.assign(box.style, { left: left + 'px', top: top + 'px', width: it.w + 'px', height: it.h + 'px', zIndex: it.z });
+      const img = new Image(); img.alt = ''; img.src = im0.getAttribute('src'); img.style.objectFit = getComputedStyle(im0).objectFit;
+      box.appendChild(img); cam.appendChild(box);
+      const o = outer(el); o.classList.add('rm-intro-orig'); hidden.push(o);
+      if (it.id === cfg.laptop) {
+        const [a, b, c, d] = cfg.screen;
+        screen = { x: left + a * it.w, y: top + b * it.h, w: (c - a) * it.w, h: (d - b) * it.h };
+        shade = document.createElement('div'); shade.className = 'rm-intro-shade';
+        Object.assign(shade.style, { left: screen.x + 'px', top: screen.y + 'px', width: screen.w + 'px', height: screen.h + 'px', zIndex: it.z });
+        cam.appendChild(shade);
+      }
+    }
+    // the work grid's tiles, in reading order
+    const tiles = [...root.querySelectorAll('.content-scroll-wrapper a.maglink > .rmwidget.widget-picture')]
+      .filter(t => parseFloat(t.style.width) >= 200 && !t.closest('.rm-intro-orig'))
+      .map(t => ({ href: t.parentElement.getAttribute('href'), img: t.querySelector('img'), x: parseFloat(t.style.left), y: parseFloat(t.style.top), w: parseFloat(t.style.width), h: parseFloat(t.style.height) }))
+      .filter(t => t.img).sort((p, q) => p.y - q.y || p.x - q.x).slice(0, 8);
+    if (!screen || !tiles.length) { hidden.forEach(o => o.classList.remove('rm-intro-orig')); return; }
+    // "Scroll to enter" and its arrow scroll with the page on the phone: lift them above the scene, fading as you go
+    const hint = document.createElement('div'); hint.className = 'rm-intro-hint'; layer.appendChild(hint);
+    root.querySelectorAll('.content-scroll-wrapper .page-content-container > .animation-container, .content-scroll-wrapper .page-content-container > .rmwidget').forEach(o => {
+      const w = o.matches('.rmwidget') ? o : o.querySelector('.rmwidget');
+      if (!w || w.matches('.widget-picture') || o.classList.contains('rm-intro-orig')) return;
+      if ((parseFloat(o.style.top) || 0) < 300) { moved.push([o, o.parentElement, o.nextSibling]); hint.appendChild(o); }
+    });
+    // small icons on the laptop screen: two rows of four, near the top (her head covers the lower middle)
+    const cols = 4, iw = screen.w * 0.15, gap = (screen.w - cols * iw) / (cols + 1);
+    const slots = tiles.map((t, i) => { const h = iw * t.h / t.w, r = Math.floor(i / cols);
+      return { x: screen.x + gap + (i % cols) * (iw + gap), y: screen.y + screen.h * 0.11 + r * (h + screen.h * 0.07), w: iw }; });
+    const veil = document.createElement('div'); veil.className = 'rm-intro-veil'; layer.appendChild(veil);   // the whole scene fades to black under the icons
+    const icons = document.createElement('div'); icons.className = 'rm-icons'; layer.appendChild(icons);
+    const els = tiles.map(t => {
+      t.img.loading = 'eager';                                   // the grid must be ready under the scene when it dissolves
+      const a = document.createElement('a'); a.className = 'rm-icon'; a.href = t.href; a.setAttribute('aria-hidden', 'true'); a.tabIndex = -1;
+      a.style.width = t.w + 'px'; a.style.height = t.h + 'px';
+      const im = new Image(); im.alt = ''; im.src = t.img.getAttribute('src'); a.appendChild(im); icons.appendChild(a); return a;
+    });
+    if (V === 'phone') article.insertBefore(layer, article.querySelector('.fixed-position-container-top')); else article.appendChild(layer);
+    const O = { x: screen.x + screen.w / 2, y: screen.y + screen.h / 2 };
+    const K = Math.max(VW / screen.w, VH / screen.h) * 1.06;     // zoom at which the screen fills the window
+    cam.style.transformOrigin = `${O.x}px ${O.y}px`;
+    const end = cfg.end;
+    let idle = 0;
+    function update() {
+      // GPU-scale while moving; once still, let the browser redraw the scene sharp at its current size
+      cam.classList.add('rm-moving'); clearTimeout(idle); idle = setTimeout(() => cam.classList.remove('rm-moving'), 180);
+      // 0 -> .62: the camera flies into the screen; .45 -> .7: the screen darkens to the page's black;
+      // .55 -> .95: the icons, now big, rearrange into the grid; .9 -> 1: the scene dissolves into the real page
+      const p = clamp01(curY / end), e = easeIO(clamp01(p / 0.62)), s = Math.pow(K, e);
+      const tx = (VW / 2 - O.x) * e, ty = (VH / 2 - O.y) * e;
+      cam.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`;
+      shade.style.opacity = clamp01((p - 0.45) / 0.25);
+      veil.style.opacity = clamp01((p - 0.52) / 0.2);
+      hint.style.opacity = 1 - clamp01(p * 6);
+      const q = easeIO(clamp01((p - 0.55) / 0.4)), st = wrapper.scrollTop;
+      els.forEach((a, i) => {
+        const sl = slots[i], t = tiles[i];
+        const vx = O.x + s * (sl.x - O.x) + tx, vy = O.y + s * (sl.y - O.y) + ty, vw = sl.w * s;   // icon as seen through the camera
+        const x = vx + (t.x - vx) * q, y = vy + (t.y - st - vy) * q, k = (vw + (t.w - vw) * q) / t.w;  // ...growing onto its tile
+        a.style.transform = `translate(${x}px, ${y}px) scale(${k})`;
+        a.style.borderRadius = (2.5 * (1 - q)) / k + 'px';
+      });
+      layer.style.opacity = 1 - clamp01((p - 0.9) / 0.1);
+      layer.style.visibility = p >= 1 ? 'hidden' : '';
+    }
+    intro = {
+      update,
+      destroy() {
+        layer.remove(); hidden.forEach(o => o.classList.remove('rm-intro-orig'));
+        moved.forEach(([o, par, next]) => par.insertBefore(o, next && next.parentElement === par ? next : null));
+      },
+    };
+    update();
+  }
+
+  // ---------- finish ----------
+  // top bars become frosted black glass; images ease in as they scroll into view
+  function decorate() {
+    const W = D.variants[V].w;
+    root.querySelectorAll('.fixed-position-container .rmwidget.widget-shape, .fixed-position-container-top .rmwidget.widget-shape').forEach(sh => {
+      const w = parseFloat(sh.style.width), h = parseFloat(sh.style.height);
+      if (w >= W * 0.9 && h > 20 && h < 70) sh.classList.add('rm-navbar');
+    });
+  }
+  let rio = null;
+  function reveals() {
+    if (rio) rio.disconnect();
+    if (REDUCED || !('IntersectionObserver' in window)) return;
+    rio = new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting) { en.target.classList.add('rm-in'); rio.unobserve(en.target); } }),
+                                   { root: wrapper, rootMargin: '0px 0px -6% 0px' });
+    const pics = root.querySelectorAll('.content-scroll-wrapper .page-content-container > .rmwidget.widget-picture, .content-scroll-wrapper .page-content-container > a > .rmwidget.widget-picture, .content-scroll-wrapper .page-content-container > .rmwidget.video');
+    pics.forEach(el => {
+      if (el.closest('.rm-intro-orig') || (D.variants[V].intro && el.closest('a.maglink') && parseFloat(el.style.width) >= 200)) return;   // the intro owns the grid
+      if (el.classList.contains('rm-in')) return;
+      el.classList.add('rm-rv'); rio.observe(el);
+    });
+  }
+
+
+  // ---------- phone menu (Dev, 22 Nov: the solid purple panel "looks very ew") ----------
+  // Readymag's hamburger, cross and panel give way to a full-screen frosted-black menu with large type. Same
+  // destinations as hers (About, Contact), plus Work, which jumps to the landing page's work grid.
+  const MENU = { burger: 'f90e8a', cross: 'e9e29c', panel: 'e6ec15', links: 'cd0e1d' };
+  let menuBits = [];
+  const closeMenu = () => html.classList.remove('rm-menu-open');
+  function phoneMenu() {
+    menuBits.forEach(x => x.remove()); menuBits = []; closeMenu();
+    const find = suf => root.querySelector(`.rmwidget[data-id$="${suf}"]`);
+    const burger = find(MENU.burger), links = find(MENU.links);
+    if (V !== 'phone' || !burger || !links) return;
+    const outerOf = el => { let o = el; while (o.parentElement && (o.parentElement.classList.contains('animation-container') || o.parentElement.tagName === 'A')) o = o.parentElement; return o; };
+    Object.values(MENU).forEach(s => { const el = find(s); if (el) outerOf(el).classList.add('rm-hide'); });
+    const nice = t => t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
+    const work = root.querySelector('a.anchor-link[data-page-uri="1"]');
+    const workPos = work ? +work.dataset.anchorLinkPos : 0;
+    const items = [{ label: 'Work', href: D.num === 1 ? '#' : url(1) + '#y' + workPos, work: D.num === 1 },
+                   ...[...links.querySelectorAll('a[href]')].map(a => ({ label: nice(a.textContent.trim()), href: a.getAttribute('href') }))];
+    const mail = root.querySelector('a[href^="mailto:"]'), li = [...root.querySelectorAll('a[href*="linkedin.com"]')][0];
+    const btn = document.createElement('button'); btn.className = 'rm-menu-btn'; btn.type = 'button';
+    btn.setAttribute('aria-label', 'Menu'); btn.setAttribute('aria-expanded', 'false'); btn.innerHTML = '<span></span><span></span>';
+    const nav = document.createElement('nav'); nav.className = 'rm-menu'; nav.setAttribute('aria-label', 'Menu');
+    const ul = document.createElement('ul');
+    items.forEach((it, i) => {
+      const liEl = document.createElement('li'); liEl.style.setProperty('--i', i);
+      const a = document.createElement('a'); a.href = it.href;
+      a.innerHTML = `<small>${String(i + 1).padStart(2, '0')}</small><span></span>`; a.lastChild.textContent = it.label;
+      a.addEventListener('click', e => {
+        if (it.work) { e.preventDefault(); wrapper.scrollTo({ top: workPos, behavior: 'smooth' }); }
+        closeMenu(); btn.setAttribute('aria-expanded', 'false');
+      });
+      liEl.appendChild(a); ul.appendChild(liEl);
+    });
+    const foot = document.createElement('div'); foot.className = 'rm-menu-foot';
+    if (mail) { const a = document.createElement('a'); a.href = mail.getAttribute('href'); a.textContent = mail.getAttribute('href').replace(/^mailto:/, ''); foot.appendChild(a); }
+    if (li) { const a = document.createElement('a'); a.href = li.getAttribute('href'); a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'LinkedIn ↗'; foot.appendChild(a); }
+    nav.append(ul, foot);
+    btn.addEventListener('click', () => { const open = html.classList.toggle('rm-menu-open'); btn.setAttribute('aria-expanded', String(open)); });
+    article.append(nav, btn); menuBits = [nav, btn];
+  }
+  addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
+
   // ---------- arrows + keys ----------
   const BASE = D.base || '';      // set when hosted under a sub-path (e.g. GitHub Pages project site)
   const url = n => BASE + (n === 1 ? '/' : `/${n}/`);
   function arrows() {
     document.querySelectorAll('.rm-arrows').forEach(x => x.remove());
-    const show = V === 'desk' ? D.arrows : D.phoneArrows;
+    const show = (V === 'desk' ? D.arrows : D.phoneArrows) && D.num > 1;   // the landing page needs no project arrows
     if (!show) return;
     const wrap = document.createElement('div'); wrap.className = 'rm-arrows';
     const mk = (dir, n) => {
@@ -238,7 +417,7 @@
   // Pinned (fixed) layers sit outside the scroller. Safari/Firefox don't hand their wheel events to it,
   // so forward them (the live viewer does the same with its own wheel handling).
   addEventListener('wheel', e => {
-    if (!wrapper || wrapper.contains(e.target) || e.ctrlKey) return;      // native scroll inside; ctrl = pinch zoom
+    if (!wrapper || wrapper.contains(e.target) || e.ctrlKey || html.classList.contains('rm-menu-open')) return;      // native scroll inside; ctrl = pinch zoom
     e.preventDefault();
     const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? innerHeight : 1;
     wrapper.scrollTop += (e.deltaY * unit) / zoom;
@@ -262,7 +441,8 @@
     bounds = article.querySelector('.content-bounds');
     document.querySelectorAll('.content-scroll-wrapper').forEach(w => w.removeEventListener('scroll', onScroll));
     wrapper.addEventListener('scroll', onScroll, { passive: true });
-    setupAnimations(); videos();
+    curY = wrapper.scrollTop;
+    setupAnimations(); videos(); decorate(); phoneMenu();
   }
   function layout() {
     const v = innerWidth < PHONE_MAX ? 'phone' : 'desk';
@@ -273,11 +453,11 @@
     const aw = innerWidth / zoom, ah = innerHeight / zoom;
     article.style.width = aw + 'px'; article.style.height = ah + 'px';
     bounds.style.minHeight = ah + 'px';
-    arrows(); onScroll();
+    arrows(); setupIntro(); reveals(); onScroll();
   }
   addEventListener('resize', layout);
   layout();
   const jump = /^#y(\d+)$/.exec(location.hash);
-  if (jump) { wrapper.scrollTop = +jump[1]; history.replaceState(null, '', location.pathname + location.search); onScroll(); }
+  if (jump) { wrapper.scrollTop = curY = +jump[1]; history.replaceState(null, '', location.pathname + location.search); onScroll(); }
   window.__rm = { get zoom() { return zoom; }, get variant() { return V; }, get wrapper() { return wrapper; } };
 })();

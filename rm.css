@@ -45,13 +45,38 @@ a.anchor-link { cursor: pointer; }
 .rm-tile-group .rmwidget.widget-shape.has-onhover-animation { opacity: 0; }
 .rm-underlay, .rm-underlay * { pointer-events: none !important; }
 
-/* page arrows (horizontal viewer) */
+/* page arrows (horizontal viewer): small frosted-glass buttons */
 .rm-arrows { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5000; }
-.rm-arrow { position: absolute; top: 50%; width: 50px; height: 80px; margin-top: -40px; display: flex; align-items: center; justify-content: center; pointer-events: all; opacity: .9; transition: opacity .2s; }
-.rm-arrow:hover { opacity: 1; }
-.rm-arrow.left { left: 4px; } .rm-arrow.right { right: 4px; }
-.rm-arrow svg { width: 18px; height: 34px; overflow: visible; }
-.rm-arrow polyline { fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 2px rgba(0,0,0,.35)); }
+.rm-arrow { position: absolute; top: 50%; width: 46px; height: 46px; margin-top: -23px; display: flex; align-items: center; justify-content: center; pointer-events: all;
+  border-radius: 50%; background: rgba(0, 0, 0, .38); -webkit-backdrop-filter: blur(12px) saturate(150%); backdrop-filter: blur(12px) saturate(150%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14); opacity: .78; transition: opacity .3s ease, transform .3s ease, background-color .3s ease; }
+.rm-arrow:hover { opacity: 1; background: rgba(0, 0, 0, .55); transform: scale(1.06); }
+.rm-arrow.left { left: 18px; } .rm-arrow.right { right: 18px; }
+.rm-arrow svg { width: 9px; height: 17px; overflow: visible; }
+.rm-arrow.left svg { margin-right: 2px; } .rm-arrow.right svg { margin-left: 2px; }
+.rm-arrow polyline { fill: none; stroke: #fff; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+
+/* finish: frosted black top bars, images easing in, accent selection, keyboard focus */
+.rmwidget.widget-shape.rm-navbar { background-color: rgba(0, 0, 0, .62) !important; -webkit-backdrop-filter: blur(18px) saturate(160%); backdrop-filter: blur(18px) saturate(160%);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .08); }
+.rmwidget.rm-rv { opacity: 0; translate: 0 22px; transition: opacity .8s cubic-bezier(.2, .65, .25, 1), translate 1s cubic-bezier(.2, .65, .25, 1); }
+.rmwidget.rm-rv.rm-in { opacity: 1; translate: none; }
+::selection { background: rgba(128, 91, 182, .9); color: #fff; }
+a:focus-visible { outline: 1px solid rgba(255, 255, 255, .7); outline-offset: 4px; }
+
+/* landing intro: the desk scene, a camera into the laptop, and the project icons on its screen */
+.rm-intro { position: absolute; inset: 0; z-index: 399; overflow: hidden; background: #000; pointer-events: none; }
+#v-phone .rm-intro { z-index: 3; }
+.rm-cam { position: absolute; inset: 0; }
+.rm-cam.rm-moving { will-change: transform; }
+.rm-intro-item { position: absolute; }
+.rm-intro-item img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.rm-intro-shade { position: absolute; background: #000; opacity: 0; }
+.rm-intro-veil { position: absolute; inset: 0; background: #000; opacity: 0; }
+.rm-icons, .rm-intro-hint { position: absolute; inset: 0; }
+.rm-icon { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; pointer-events: auto; background: #0b0b0b; }
+.rm-icon img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.rm-intro-orig { visibility: hidden !important; }
 
 /* horizontal page slide between pages */
 @view-transition { navigation: auto; }
@@ -61,3 +86,25 @@ html:active-view-transition-type(forward)::view-transition-old(root) { animation
 html:active-view-transition-type(forward)::view-transition-new(root) { animation: .55s cubic-bezier(.56,.86,.59,1) both rm-in-r; }
 html:active-view-transition-type(backward)::view-transition-old(root) { animation: .55s cubic-bezier(.56,.86,.59,1) both rm-out-r; }
 html:active-view-transition-type(backward)::view-transition-new(root) { animation: .55s cubic-bezier(.56,.86,.59,1) both rm-in-l; }
+
+/* phone menu: full-screen frosted black, large light type, a two-line button that turns into a cross */
+.rm-hide { display: none !important; }
+.rm-menu-btn { position: absolute; top: 8px; right: 3px; width: 40px; height: 40px; z-index: 6001; border: 0; padding: 0; margin: 0; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.rm-menu-btn span { position: absolute; left: 12px; width: 16px; height: 1.4px; border-radius: 1px; background: #fff; transition: transform .5s cubic-bezier(.7, 0, .2, 1), top .5s cubic-bezier(.7, 0, .2, 1); }
+.rm-menu-btn span:nth-child(1) { top: 16.5px; } .rm-menu-btn span:nth-child(2) { top: 22.5px; }
+html.rm-menu-open .rm-menu-btn span:nth-child(1) { top: 19.5px; transform: rotate(45deg); }
+html.rm-menu-open .rm-menu-btn span:nth-child(2) { top: 19.5px; transform: rotate(-45deg); }
+.rm-menu { position: absolute; inset: 0; z-index: 6000; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; padding: 118px 26px 30px;
+  font-family: Figtree, system-ui, sans-serif; background: rgba(6, 6, 8, .84); -webkit-backdrop-filter: blur(26px) saturate(150%); backdrop-filter: blur(26px) saturate(150%);
+  opacity: 0; visibility: hidden; transition: opacity .45s ease, visibility 0s linear .45s; }
+html.rm-menu-open .rm-menu { opacity: 1; visibility: visible; transition: opacity .45s ease; }
+.rm-menu ul { list-style: none; margin: 0; padding: 0; }
+.rm-menu li { overflow: hidden; padding-bottom: 4px; }
+.rm-menu li a { display: flex; align-items: flex-start; gap: 12px; color: #fff; text-decoration: none; font-size: 40px; font-weight: 300; line-height: 1.18; letter-spacing: -.015em;
+  transform: translateY(110%); transition: transform .55s cubic-bezier(.2, .75, .2, 1); }
+html.rm-menu-open .rm-menu li a { transform: none; transition-delay: calc(140ms + var(--i) * 70ms); }
+.rm-menu li small { padding-top: 9px; font-size: 9px; font-weight: 500; letter-spacing: .14em; color: rgb(176, 146, 222); }
+.rm-menu li a:active span { color: rgb(176, 146, 222); }
+.rm-menu-foot { display: flex; justify-content: space-between; gap: 12px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, .12); opacity: 0; transition: opacity .4s ease; }
+html.rm-menu-open .rm-menu-foot { opacity: 1; transition: opacity .6s ease .35s; }
+.rm-menu-foot a { color: rgba(255, 255, 255, .62); text-decoration: none; font-size: 11px; letter-spacing: .03em; }
