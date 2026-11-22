@@ -127,7 +127,10 @@
         const triggers = (a.trigger.length ? a.trigger.map(byId) : [box]).filter(Boolean);   // no trigger = the whole group
         triggers.push(...root.querySelectorAll(`[data-rm-hover="${rec.id}"]`));              // extra triggers added by patches
         if (a.type === 'hover') {
-          const on = () => { anim.playbackRate = 1; anim.play(); }, off = () => { anim.playbackRate = -1; anim.play(); };
+          // Fingers don't hover. On iPhone, a tap whose "hover" reveals something (e.g. a tile's overlay fading in) is
+          // treated as a hover only and the link never opens, tap after tap. The live viewer skips hover on touch too.
+          const on = e => { if (e.pointerType === 'touch') return; anim.playbackRate = 1; anim.play(); };
+          const off = e => { if (e.pointerType === 'touch') return; anim.playbackRate = -1; anim.play(); };
           triggers.forEach(t => { t.addEventListener('pointerenter', on); t.addEventListener('pointerleave', off);
                                   cleanups.push(() => { t.removeEventListener('pointerenter', on); t.removeEventListener('pointerleave', off); }); });
         } else if (a.type === 'click') {
