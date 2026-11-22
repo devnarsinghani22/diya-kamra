@@ -273,7 +273,7 @@
       t.img.loading = 'eager';                                   // the grid must be ready under the scene when it dissolves
       const a = document.createElement('a'); a.className = 'rm-icon'; a.href = t.href; a.setAttribute('aria-hidden', 'true'); a.tabIndex = -1;
       a.style.width = t.w + 'px'; a.style.height = t.h + 'px';
-      const im = new Image(); im.alt = ''; im.src = t.img.getAttribute('src'); a.appendChild(im); iconsEl.appendChild(a); return a;
+      const im = new Image(); im.alt = t.img.alt || ''; im.src = t.img.getAttribute('src'); a.appendChild(im); iconsEl.appendChild(a); return a;
     });
     if (V === 'phone') article.insertBefore(layer, article.querySelector('.fixed-position-container-top')); else article.appendChild(layer);
 
@@ -404,6 +404,11 @@
     root.querySelectorAll('.fixed-position-container .rmwidget.widget-shape, .fixed-position-container-top .rmwidget.widget-shape').forEach(sh => {
       const w = parseFloat(sh.style.width), h = parseFloat(sh.style.height);
       if (w >= W * 0.9 && h > 20 && h < 70) sh.classList.add('rm-navbar');
+    });
+    // describe the landing tiles by their project names (screen readers, link scrapers)
+    if (D.names) root.querySelectorAll('.content-scroll-wrapper a.maglink > .rmwidget.widget-picture img').forEach(im => {
+      const m = /\/(\d+)\/$/.exec(im.closest('a').getAttribute('href') || ''); const name = m && D.names[m[1]];
+      if (name && !im.alt) im.alt = name;
     });
     // laptop nav: About / Contact are plain words on most project pages; make them go somewhere
     if (V === 'desk') root.querySelectorAll('.fixed-position-container .rmwidget.widget-text-v3, .fixed-position-container-top .rmwidget.widget-text-v3').forEach(t => {
