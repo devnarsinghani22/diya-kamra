@@ -195,7 +195,21 @@
     if (e.target.closest && e.target.closest('input, textarea')) return;
     if (e.key === 'ArrowRight' && D.num < D.total) location.href = url(D.num + 1);
     if (e.key === 'ArrowLeft' && D.num > 1) location.href = url(D.num - 1);
+    // keyboard scrolling goes to the page's scroller wherever focus is
+    const page = wrapper.clientHeight * 0.9;
+    const step = { ArrowDown: 60, ArrowUp: -60, PageDown: page, PageUp: -page, ' ': e.shiftKey ? -page : page }[e.key];
+    if (step !== undefined) { e.preventDefault(); wrapper.scrollTop += step; }
+    if (e.key === 'Home') wrapper.scrollTop = 0;
+    if (e.key === 'End') wrapper.scrollTop = wrapper.scrollHeight;
   });
+  // Pinned (fixed) layers sit outside the scroller. Safari/Firefox don't hand their wheel events to it,
+  // so forward them (the live viewer does the same with its own wheel handling).
+  addEventListener('wheel', e => {
+    if (!wrapper || wrapper.contains(e.target) || e.ctrlKey) return;      // native scroll inside; ctrl = pinch zoom
+    e.preventDefault();
+    const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? innerHeight : 1;
+    wrapper.scrollTop += (e.deltaY * unit) / zoom;
+  }, { passive: false });
   const numOf = u => { try { const m = new URL(u).pathname.slice(BASE.length).match(/^\/(\d+)\/?$/); return m ? +m[1] : 1; } catch (e) { return 0; } };
   addEventListener('pageswap', e => {
     const to = e.activation && e.activation.entry && numOf(e.activation.entry.url);
