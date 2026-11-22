@@ -429,7 +429,7 @@
     const pics = root.querySelectorAll('.content-scroll-wrapper .page-content-container > .rmwidget.widget-picture, .content-scroll-wrapper .page-content-container > a > .rmwidget.widget-picture, .content-scroll-wrapper .page-content-container > .rmwidget.video');
     pics.forEach(el => {
       if (el.closest('.rm-intro-orig') || (D.variants[V].intro && el.closest('a.maglink') && parseFloat(el.style.width) >= 200)) return;   // the intro owns the grid
-      if (el.classList.contains('rm-in')) return;
+      if (el.classList.contains('rm-in') || !el.offsetWidth) return;     // hidden widgets never need revealing
       el.classList.add('rm-rv'); rio.observe(el);
     });
   }
