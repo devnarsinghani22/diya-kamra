@@ -315,6 +315,15 @@
       const w = parseFloat(sh.style.width), h = parseFloat(sh.style.height);
       if (w >= W * 0.9 && h > 20 && h < 70) sh.classList.add('rm-navbar');
     });
+    // laptop nav: About / Contact are plain words on most project pages; make them go somewhere
+    if (V === 'desk') root.querySelectorAll('.fixed-position-container .rmwidget.widget-text-v3, .fixed-position-container-top .rmwidget.widget-text-v3').forEach(t => {
+      const word = t.textContent.trim().toLowerCase();
+      if (!['about', 'contact'].includes(word) || t.querySelector('a') || t.dataset.rmLink) return;
+      const href = word === 'about' ? url(SITE.about) : SITE.contact;
+      t.dataset.rmLink = href; t.setAttribute('role', 'link'); t.tabIndex = 0; t.style.cursor = 'pointer';
+      t.addEventListener('click', () => { location.href = href; });
+      t.addEventListener('keydown', e => { if (e.key === 'Enter') location.href = href; });
+    });
   }
   let rio = null;
   function reveals() {
@@ -335,21 +344,26 @@
   // Readymag's hamburger, cross and panel give way to a full-screen frosted-black menu with large type. Same
   // destinations as hers (About, Contact), plus Work, which jumps to the landing page's work grid.
   const MENU = { burger: 'f90e8a', cross: 'e9e29c', panel: 'e6ec15', links: 'cd0e1d' };
+  // her own destinations, used where a page lacks the Readymag menu or nav links (page 9 on the phone, About/Contact
+  // as plain text on most project pages on the laptop; the same on her live Readymag)
+  const SITE = { about: 10, contact: 'http://www.linkedin.com/in/diyakamra', email: 'mailto:diyakamra1019@gmail.com', work: 583 };
   let menuBits = [];
   const closeMenu = () => html.classList.remove('rm-menu-open');
   function phoneMenu() {
     menuBits.forEach(x => x.remove()); menuBits = []; closeMenu();
     const find = suf => root.querySelector(`.rmwidget[data-id$="${suf}"]`);
     const burger = find(MENU.burger), links = find(MENU.links);
-    if (V !== 'phone' || !burger || !links) return;
+    if (V !== 'phone') return;
     const outerOf = el => { let o = el; while (o.parentElement && (o.parentElement.classList.contains('animation-container') || o.parentElement.tagName === 'A')) o = o.parentElement; return o; };
     Object.values(MENU).forEach(s => { const el = find(s); if (el) outerOf(el).classList.add('rm-hide'); });
     const nice = t => t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
     const work = root.querySelector('a.anchor-link[data-page-uri="1"]');
-    const workPos = work ? +work.dataset.anchorLinkPos : 0;
+    const workPos = work ? +work.dataset.anchorLinkPos : SITE.work;
+    const own = links ? [...links.querySelectorAll('a[href]')].map(a => ({ label: nice(a.textContent.trim()), href: a.getAttribute('href') })) : [];
     const items = [{ label: 'Work', href: D.num === 1 ? '#' : url(1) + '#y' + workPos, work: D.num === 1 },
-                   ...[...links.querySelectorAll('a[href]')].map(a => ({ label: nice(a.textContent.trim()), href: a.getAttribute('href') }))];
-    const mail = root.querySelector('a[href^="mailto:"]'), li = [...root.querySelectorAll('a[href*="linkedin.com"]')][0];
+                   ...(own.length ? own : [{ label: 'About', href: url(SITE.about) }, { label: 'Contact', href: SITE.contact }])];
+    const mail = root.querySelector('a[href^="mailto:"]') || { getAttribute: () => SITE.email };
+    const li = [...root.querySelectorAll('a[href*="linkedin.com"]')][0] || { getAttribute: () => SITE.contact };
     const btn = document.createElement('button'); btn.className = 'rm-menu-btn'; btn.type = 'button';
     btn.setAttribute('aria-label', 'Menu'); btn.setAttribute('aria-expanded', 'false'); btn.innerHTML = '<span></span><span></span>';
     const nav = document.createElement('nav'); nav.className = 'rm-menu'; nav.setAttribute('aria-label', 'Menu');
