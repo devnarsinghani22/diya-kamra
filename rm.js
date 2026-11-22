@@ -143,13 +143,32 @@
   }
 
   // ---------- videos ----------
-  function videos(active) {
-    document.querySelectorAll('video[data-src]').forEach(v => {
-      const on = root.contains(v);
-      if (on) {
+  // videos load and play only when within about a screen of view (keeps phones from downloading every clip at once)
+  let vio = null;
+  function videos() {
+    if (vio) vio.disconnect();
+    document.querySelectorAll('video[data-src]').forEach(v => { if (!root.contains(v) && v.src) v.pause(); });
+    vio = new IntersectionObserver(entries => {
+      for (const en of entries) {
+        const v = en.target;
+        if (en.isIntersecting) {
+          if (!v.src) { v.src = v.dataset.src; v.preload = 'auto'; }
+          if (v.hasAttribute('data-autoplay')) { v.muted = true; v.play().catch(() => {}); }
+        } else if (v.src) v.pause();
+      }
+    }, { root: wrapper, rootMargin: '100% 0px 100% 0px' });
+    root.querySelectorAll('video[data-src]').forEach(v => {
+      vio.observe(v);
+      if (v.dataset.wired) return; v.dataset.wired = '1';
+      // Readymag custom controls: centred play icon, click toggles play/pause
+      const w = v.closest('.rmwidget'); const icon = w && w.querySelector('#custom');
+      const sync = () => { if (icon) icon.style.opacity = v.paused ? '' : '0'; };
+      v.addEventListener('play', sync); v.addEventListener('pause', sync); v.addEventListener('ended', sync);
+      if (w) { w.style.cursor = 'pointer'; w.addEventListener('click', e => {
+        if (e.target.closest('a')) return;
         if (!v.src) { v.src = v.dataset.src; v.preload = 'auto'; }
-        v.muted = true; if (v.hasAttribute('data-autoplay')) v.play().catch(() => {});
-      } else if (v.src) v.pause();
+        if (v.paused) { if (v.hasAttribute('data-sound')) v.muted = false; v.play().catch(() => {}); } else v.pause();
+      }); }
     });
   }
 
