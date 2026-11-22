@@ -390,6 +390,8 @@
       images: [...layer.querySelectorAll('img')],
       arrive() { if (P > 0) return; layer.classList.add('rm-arrive'); layer.addEventListener('animationend', () => layer.classList.remove('rm-arrive'), { once: true }); },
       workTop: pos => (pos === cfg.end ? END : pos),   // her Work anchor lands where the move lands
+      // arrived already at the grid (Home / menu Work from a project page): show the page, don't replay the move
+      sync() { if (anim) return; lastY = wrapper.scrollTop; if (lastY >= END - 2) { P = 1; state = 'grid'; } measure(); render(); },
       get state() { return state; },
       destroy() {
         cancelAnimationFrame(anim); cancelAnimationFrame(pAnim); clearTimeout(dog);
@@ -628,6 +630,6 @@
     setTimeout(finish, 5600);
   })();
   const jump = /^#y(\d+)$/.exec(location.hash);
-  if (jump) { wrapper.scrollTop = curY = intro ? intro.workTop(+jump[1]) : +jump[1]; history.replaceState(null, '', location.pathname + location.search); if (intro) intro.measure(); onScroll(); }
+  if (jump) { wrapper.scrollTop = curY = intro ? intro.workTop(+jump[1]) : +jump[1]; history.replaceState(null, '', location.pathname + location.search); if (intro) intro.sync(); onScroll(); }
   window.__rm = { get zoom() { return zoom; }, get variant() { return V; }, get wrapper() { return wrapper; } };
 })();

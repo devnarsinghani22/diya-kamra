@@ -18,7 +18,7 @@ article.page { position: absolute; left: 0; top: 0; overflow: hidden; background
 .page-with-fixeds-sticky-or-mobile .fixed-position-container-top { display: block; pointer-events: none; z-index: 3; }
 .page-with-fixeds-sticky-or-mobile .content-scroll-wrapper { z-index: 2; }
 article.page.page-with-fixeds-sticky-or-mobile .rmwidget { pointer-events: all; }
-.content-scroll-wrapper { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow-x: hidden; overflow-y: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+.content-scroll-wrapper { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow-x: hidden; overflow-y: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; -webkit-tap-highlight-color: transparent; }
 .content-scroll-wrapper::-webkit-scrollbar { display: none; }
 .content-bounds { position: absolute; overflow: hidden; }
 .page-content-container { position: relative; overflow: visible; transform-origin: 0 0; outline: 0; }
