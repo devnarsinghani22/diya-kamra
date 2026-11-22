@@ -183,3 +183,9 @@ html.rm-menu-open .rm-menu-foot { opacity: 1; transition: opacity .6s ease .35s;
 .rm-navtitle span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #v-phone .rm-navtitle { max-width: 50%; font-size: 9.5px; padding-top: 3px; box-sizing: border-box; }
 @keyframes rm-fade-in { from { opacity: 0; } }
+/* visitors who ask their system for less motion: no page slides, no spinning flower (the intro is skipped in rm.js) */
+@media (prefers-reduced-motion: reduce) {
+  @view-transition { navigation: none; }
+  .rm-loader-mark, .rm-sway { animation: none; }
+  .rmwidget.rm-rv { opacity: 1; translate: none; transition: none; }
+}
