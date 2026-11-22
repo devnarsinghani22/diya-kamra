@@ -141,6 +141,16 @@
     if (ticking) return; ticking = true;
     requestAnimationFrame(() => { ticking = false; const vh = wrapper.clientHeight; for (const f of scrollAnims) f(vh); });
   }
+  // Safari pauses muted autoplay video it wrongly thinks is off-screen (scaled, scrolled pages): restart any that is
+  // actually on screen, unless the viewer paused it.
+  setInterval(() => {
+    if (!root || document.hidden) return;
+    root.querySelectorAll('video[data-autoplay]').forEach(v => {
+      if (!v.src || !v.paused || v.dataset.userPaused || v.ended && !v.loop) return;
+      const r = v.getBoundingClientRect();
+      if (r.width > 0 && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth) { v.muted = true; v.play().catch(() => {}); }
+    });
+  }, 700);
 
   // ---------- videos ----------
   // videos load and play only when within about a screen of view (keeps phones from downloading every clip at once)
@@ -152,8 +162,11 @@
       for (const en of entries) {
         const v = en.target;
         if (en.isIntersecting) {
-          if (!v.src) { v.src = v.dataset.src; v.preload = 'auto'; }
-          if (v.hasAttribute('data-autoplay')) { v.muted = true; v.play().catch(() => {}); }
+          if (!v.src) {
+            if (v.hasAttribute('data-autoplay')) { v.muted = true; v.autoplay = true; }   // Safari manages native autoplay best
+            v.src = v.dataset.src; v.preload = 'auto';
+          }
+          if (v.hasAttribute('data-autoplay') && !v.dataset.userPaused) v.play().catch(() => {});
         } else if (v.src) v.pause();
       }
     }, { root: wrapper, rootMargin: '100% 0px 100% 0px' });
@@ -167,7 +180,8 @@
       if (w) { w.style.cursor = 'pointer'; w.addEventListener('click', e => {
         if (e.target.closest('a')) return;
         if (!v.src) { v.src = v.dataset.src; v.preload = 'auto'; }
-        if (v.paused) { if (v.hasAttribute('data-sound')) v.muted = false; v.play().catch(() => {}); } else v.pause();
+        if (v.paused) { delete v.dataset.userPaused; if (v.hasAttribute('data-sound')) v.muted = false; v.play().catch(() => {}); }
+        else { v.dataset.userPaused = '1'; v.pause(); }
       }); }
     });
   }
