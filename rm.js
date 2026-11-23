@@ -452,7 +452,8 @@
     revealTick();
   }
   function revealTick() {
-    const line = wrapper.scrollTop + wrapper.clientHeight * 0.94;
+    const atEnd = wrapper.scrollTop >= wrapper.scrollHeight - wrapper.clientHeight - 2;      // the bottom: show everything
+    const line = atEnd ? Infinity : wrapper.scrollTop + wrapper.clientHeight * 0.94;
     let i = 0;
     while (i < pending.length && pending[i].top < line) pending[i++].el.classList.add('rm-in');
     if (i) pending = pending.slice(i);
