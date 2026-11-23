@@ -59,7 +59,10 @@
     const y = Number.isFinite(top) ? top : rec.y;        // group containers carry the real position
     const steps = a.steps.map(st => {
       const dataLen = st.use_move ? Math.hypot(st.dx || 0, st.dy || 0) : 0;
-      const len = st.use_move ? (segs[mi++] ?? dataLen) : 0;
+      const fromPath = st.use_move && segs[mi] !== undefined;
+      // her path's own length: Firefox measures offset-distance on screen, so even along a path scaled up for it
+      // (see scalePaths) distances and timings stay in her units
+      const len = st.use_move ? (fromPath ? segs[mi++] * motionK : dataLen) : 0;
       const fade = (V === 'desk' && rec.fixed) ? 212 : 300;   // fitted: pinned desktop fades run shorter
       const dur = Math.max(1, st.use_move ? (len / st.speed) * K : fade / st.speed);
       const s = { st, len, dur, ease: bezier(curve(st.acceleration)), off: at + (st.delay_px || 0) };
@@ -105,7 +108,7 @@
     const st = a.steps[0];
     const segs = pathLens(box);
     let total = 0, mi = 0;
-    for (const s of a.steps) if (s.use_move) total += segs[mi++] ?? Math.hypot(s.dx || 0, s.dy || 0);
+    for (const s of a.steps) if (s.use_move) total += segs[mi] !== undefined ? segs[mi++] * motionK : Math.hypot(s.dx || 0, s.dy || 0);
     if (a.steps.some(s => s.use_move)) { from.offsetDistance = '0px'; to.offsetDistance = total + 'px'; }
     if (a.steps.some(s => s.use_opacity)) { from.opacity = (st.from_opacity ?? 100) / 100; to.opacity = (a.steps[a.steps.length - 1].opacity ?? 100) / 100; }
     return [from, to];
