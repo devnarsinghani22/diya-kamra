@@ -93,7 +93,7 @@
         if (s < k.off) break;
       }
       if (useMove) box.style.offsetDistance = dist + 'px';
-      if (pm && totalLen) box.style.translate = `0 ${(landY - (vh / 2 + parseFloat(box.style.marginTop || 0) + +pm[4])) * dist / totalLen}px`;
+      if (pm && totalLen) box.style.translate = `0 ${(landY - (vh / 2 + parseFloat(box.style.marginTop || 0) + +pm[4] * motionK)) * dist / totalLen}px`;
       if (useRot || useScale) box.style.transform = `rotate(${cur.rotate}deg) scale(${cur.scale / 100})`;
       if (useOp) { box.style.opacity = cur.opacity / 100; box.style.visibility = cur.opacity <= 0.5 ? 'hidden' : ''; }   // faded-out layers must not block the pointer
     };
@@ -119,6 +119,28 @@
   }
   // a click-toggled layer that has faded out must not catch taps meant for what is under it (the live viewer hides it)
   const hideIfFaded = box => { box.style.visibility = parseFloat(getComputedStyle(box).opacity) <= 0.01 ? 'hidden' : ''; };
+
+  // Firefox applies the page zoom to motion-path coordinates (offset-path) a second time: every element inside one of
+  // her animation wrappers lands short by (1 - 1/zoom) of its path point. Probe the engine once per layout; where paths
+  // shrink, write them back scaled up by the same factor. Chrome and Safari probe 1 and keep her paths untouched.
+  let motionK = 1;
+  function probeMotion() {
+    const d = document.createElement('div');
+    d.style.cssText = 'position:absolute;left:0;top:0;width:10px;height:10px;offset-path:path("M 105 5");offset-distance:0px;offset-rotate:0deg;visibility:hidden';
+    article.appendChild(d);
+    const a = article.getBoundingClientRect(), r = d.getBoundingClientRect(), f = a.width / article.clientWidth || 1;
+    d.remove();
+    const x = (r.left - a.left) / f + 5;          // where the probe's centre landed, in design px (should be 105)
+    return x > 1 && Math.abs(x - 105) > 0.5 ? x / 105 : 1;
+  }
+  function scalePaths(k) {
+    root.querySelectorAll('.animation-container').forEach(c => {
+      const orig = c.dataset.rmPath || c.style.offsetPath;
+      if (!/path\(/.test(orig || '')) return;
+      c.dataset.rmPath = orig;
+      c.style.offsetPath = k === 1 ? orig : orig.replace(/-?\d+(\.\d+)?/g, n => (+n / k).toFixed(3));
+    });
+  }
 
   function setupAnimations() {
     scrollAnims = []; cleanups.forEach(f => f()); cleanups = [];
@@ -615,18 +637,39 @@
     document.querySelectorAll('.content-scroll-wrapper').forEach(w => w.removeEventListener('scroll', onScroll));
     wrapper.addEventListener('scroll', onScroll, { passive: true });
     curY = wrapper.scrollTop;
-    setupAnimations(); videos(); decorate(); phoneMenu();
+    scalePaths(motionK); setupAnimations(); videos(); decorate(); phoneMenu();
   }
+  // nav words come in pairs: a white word that fades on hover over a purple twin. Her twins' boxes are a little
+  // different in size, so the centred letters sit ~1px apart and a purple fringe shows at rest: put each twin's
+  // letters exactly under the white word's. Runs after every layout (and after any motion-path correction).
+  function alignNavTwins() {
+    const hover = new Set(D.variants[V].anims.filter(r => r.anims.some(a => a.type === 'hover')).map(r => r.id));
+    const glyphs = el => { const tw = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let a = null, b = null;
+      while (tw.nextNode()) if (tw.currentNode.data.trim()) { a = a || tw.currentNode; b = tw.currentNode; }
+      if (!a) return null; const r = document.createRange(); r.setStart(a, a.data.search(/\S/)); r.setEnd(b, b.data.trimEnd().length); return r.getBoundingClientRect(); };
+    const fz = bounds.getBoundingClientRect().width / bounds.offsetWidth || 1;     // screen px per design px
+    const words = [...root.querySelectorAll('.fixed-position-container .rmwidget.widget-text-v3, .fixed-position-container-top .rmwidget.widget-text-v3')];
+    words.forEach(el => { if (el.dataset.rmAligned) el.style.translate = ''; });
+    const info = words.map(el => ({ el, txt: el.textContent.trim().toLowerCase(), white: hover.has(el.dataset.id), g: glyphs(el) })).filter(w => w.txt && w.g && w.g.width);
+    info.filter(w => w.white).forEach(w => {
+      const twin = info.find(u => !u.white && u.txt === w.txt && Math.abs(u.g.left - w.g.left) < 8 * fz && Math.abs(u.g.top - w.g.top) < 8 * fz);
+      if (!twin) return;
+      twin.el.dataset.rmAligned = '1';
+      twin.el.style.translate = `${(w.g.left - twin.g.left) / fz}px ${(w.g.top - twin.g.top) / fz}px`;
+    });
+  }
+
   function layout() {
     const v = innerWidth < PHONE_MAX ? 'phone' : 'desk';
-    if (v !== V) activate(v);
-    const W = D.variants[V].w;
-    zoom = Math.min(innerWidth, SCALE_MAX) / W;
+    zoom = Math.min(innerWidth, SCALE_MAX) / D.variants[v].w;
     html.style.zoom = zoom;
+    if (v !== V) activate(v);
     const aw = innerWidth / zoom, ah = innerHeight / zoom;
     article.style.width = aw + 'px'; article.style.height = ah + 'px';
     bounds.style.minHeight = ah + 'px';
-    arrows(); pageAids(); if (!intro || intro.variant !== V) setupIntro(); else intro.measure(); reveals(); onScroll();
+    const k = probeMotion();                                  // 1 except in engines that zoom motion paths twice
+    if (Math.abs(k - motionK) > 0.002) { motionK = k; scalePaths(k); setupAnimations(); }
+    arrows(); pageAids(); if (!intro || intro.variant !== V) setupIntro(); else intro.measure(); reveals(); alignNavTwins(); onScroll();
   }
   addEventListener('resize', layout);
   layout();
