@@ -167,7 +167,7 @@
     const vh = wrapper.clientHeight;
     for (const f of scrollAnims) f(vh);
     if (intro) intro.onScroll();
-    aidsUpdate();
+    aidsUpdate(); if (pending.length) revealTick();
     if (curY !== target) requestAnimationFrame(frame); else { ticking = false; last = 0; }
   }
   function onScroll() { if (ticking) return; ticking = true; requestAnimationFrame(frame); }
@@ -437,19 +437,27 @@
       t.addEventListener('keydown', e => { if (e.key === 'Enter') location.href = href; });
     });
   }
-  let rio = null;
+  // images ease in once they reach the screen; anything already passed (a jump, a fast fling) shows at once
+  let pending = [];
   function reveals() {
-    if (rio) rio.disconnect();
-    if (REDUCED || !('IntersectionObserver' in window)) return;
-    rio = new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting) { en.target.classList.add('rm-in'); rio.unobserve(en.target); } }),
-                                   { root: wrapper, rootMargin: '0px 0px -6% 0px' });
+    pending.forEach(p => p.el.classList.remove('rm-rv')); pending = [];
+    if (REDUCED) return;
     const pics = root.querySelectorAll('.content-scroll-wrapper .page-content-container > .rmwidget.widget-picture, .content-scroll-wrapper .page-content-container > a > .rmwidget.widget-picture, .content-scroll-wrapper .page-content-container > .rmwidget.video');
     pics.forEach(el => {
       if (el.closest('.rm-intro-orig') || (D.variants[V].intro && el.closest('a.maglink') && parseFloat(el.style.width) >= 200)) return;   // the intro owns the grid
       if (el.classList.contains('rm-in') || !el.offsetWidth) return;     // hidden widgets never need revealing
-      el.classList.add('rm-rv'); rio.observe(el);
+      el.classList.add('rm-rv'); pending.push({ el, top: el.offsetTop });
     });
+    pending.sort((p, q) => p.top - q.top);
+    revealTick();
   }
+  function revealTick() {
+    const line = wrapper.scrollTop + wrapper.clientHeight * 0.94;
+    let i = 0;
+    while (i < pending.length && pending[i].top < line) pending[i++].el.classList.add('rm-in');
+    if (i) pending = pending.slice(i);
+  }
+
 
 
 
