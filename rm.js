@@ -29,6 +29,9 @@
   const wid = id => root.querySelector(`.rmwidget[data-id="${id}"]`);
   const clamp01 = t => Math.min(1, Math.max(0, t));
   const easeIO = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  // her load animations (e.g. the About page figure walking in) start once the page has arrived, as in the live viewer,
+  // which starts them ~0.7 s after opening a page; started at once they finish before anyone sees them
+  const LOAD_DELAY = 700;
 
   // animation-containers wrapping a widget, outermost first: one per animation that has steps
   function containersOf(el) {
@@ -133,7 +136,7 @@
         box.classList.remove('invisible');           // opacity is driven by the animation from here on
         if (a.type === 'scroll') { const f = buildScroll(rec, a, box, top); f.box = box; scrollAnims.push(f); return; }
         const anim = timeAnim(box, a);
-        if (a.type === 'load') { anim.play(); return; }
+        if (a.type === 'load') { anim.pause(); anim.currentTime = 0; const t = setTimeout(() => anim.play(), LOAD_DELAY); cleanups.push(() => clearTimeout(t), () => anim.cancel()); return; }
         anim.pause(); anim.currentTime = 0;
         const triggers = (a.trigger.length ? a.trigger.map(byId) : [box]).filter(Boolean);   // no trigger = the whole group
         triggers.push(...root.querySelectorAll(`[data-rm-hover="${rec.id}"]`));              // extra triggers added by patches
@@ -406,6 +409,15 @@
   // top bars become frosted black glass; images ease in as they scroll into view
   function decorate() {
     const W = D.variants[V].w;
+    root.querySelectorAll('.text-viewer p').forEach(p => {
+      if (p.dataset.rmTrim) return; p.dataset.rmTrim = '1';
+      const tw = document.createTreeWalker(p, NodeFilter.SHOW_TEXT), nodes = [];
+      while (tw.nextNode()) nodes.push(tw.currentNode);
+      for (let i = nodes.length - 1; i >= 0; i--) {
+        const kept = nodes[i].data.replace(/[\s ​‍]+$/, '');
+        nodes[i].data = kept; if (kept) break;
+      }
+    });
     root.querySelectorAll('.fixed-position-container .rmwidget.widget-shape, .fixed-position-container-top .rmwidget.widget-shape').forEach(sh => {
       const w = parseFloat(sh.style.width), h = parseFloat(sh.style.height);
       if (w >= W * 0.9 && h > 20 && h < 70) sh.classList.add('rm-navbar');
@@ -469,6 +481,13 @@
     const [bar, up] = progBits, max = wrapper.scrollHeight - wrapper.clientHeight;
     bar.firstChild.style.transform = `scaleX(${max > 0 ? wrapper.scrollTop / max : 0})`;
     up.classList.toggle('rm-on', wrapper.scrollTop > wrapper.clientHeight * 2.5);
+    // rise above the footer band once it scrolls into view (so it never sits on her name)
+    const foot = root.querySelector('.rmwidget[data-id$="df3625"], .rmwidget[data-id$="574b45"]');
+    if (foot) {
+      const a = article.getBoundingClientRect(), f = a.height / article.clientHeight || 1;
+      const over = Math.max(0, (a.bottom - foot.getBoundingClientRect().top) / f) * zoom;    // screen px of footer showing
+      up.style.bottom = (22 + over) + 'px';
+    }
   }
 
   // ---------- phone menu (Dev, 22 Nov: the solid purple panel "looks very ew") ----------

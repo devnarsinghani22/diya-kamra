@@ -189,3 +189,10 @@ html.rm-menu-open .rm-menu-foot { opacity: 1; transition: opacity .6s ease .35s;
   .rm-loader-mark, .rm-sway { animation: none; }
   .rmwidget.rm-rv { opacity: 1; translate: none; transition: none; }
 }
+
+/* her link style turns links half-transparent black on hover / tap (and black when "current"): invisible on these dark
+   pages, and on a phone a tap leaves it that way. Hover: her lavender; current: white. Footer links: white, underlined. */
+a[class*="link-style-"]:hover, a[class*="link-style-"]:hover *, a[class*="link-style-"].hover, a[class*="link-style-"].hover * { color: rgb(196, 172, 232) !important; }
+a[class*="link-style-"].current, a[class*="link-style-"].current * { color: inherit !important; background: none !important; }
+.rm-foot a[class*="link-style-"]:hover, .rm-foot a[class*="link-style-"]:hover *, .rm-foot a[class*="link-style-"]:active, .rm-foot a[class*="link-style-"]:active * {
+  color: #fff !important; text-decoration: underline !important; text-underline-offset: 3px; }
