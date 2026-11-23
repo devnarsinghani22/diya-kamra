@@ -162,7 +162,7 @@
   let ticking = false, last = 0;
   function frame(now) {
     const target = wrapper.scrollTop, dt = Math.min(64, last ? now - last : 16.7); last = now;
-    curY += (target - curY) * (REDUCED ? 1 : 1 - Math.pow(0.8, dt / 16.7));
+    curY += (target - curY) * (REDUCED ? 1 : 1 - Math.pow(0.55, dt / 16.7));   // ~0.1 s glide: close to her 1:1 original
     if (Math.abs(target - curY) < 0.3) curY = target;
     const vh = wrapper.clientHeight;
     for (const f of scrollAnims) f(vh);
