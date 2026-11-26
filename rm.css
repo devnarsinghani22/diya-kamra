@@ -68,7 +68,7 @@ a:focus-visible { outline: 1px solid rgba(255, 255, 255, .7); outline-offset: 4p
 .rm-intro { position: absolute; inset: 0; z-index: 399; overflow: hidden; background: #000; pointer-events: none; }
 #v-phone .rm-intro { z-index: 3; }
 .rm-plane { position: absolute; inset: 0; transform-origin: 0 0; }
-.rm-intro.rm-moving .rm-plane, .rm-intro.rm-moving .rm-icon { will-change: transform; }
+.rm-intro .rm-plane, .rm-intro .rm-icon { will-change: transform; }   /* promoted up front: no hitch on the move's first frame */
 .rm-sway { animation: rm-sway var(--sway-t, 8s) ease-in-out var(--sway-d, 0s) infinite alternate; }
 @keyframes rm-sway { from { rotate: calc(var(--sway-a, 1deg) * -1); } to { rotate: var(--sway-a, 1deg); } }
 .rm-intro-item { position: absolute; }
@@ -103,7 +103,7 @@ a:focus-visible { outline: 1px solid rgba(255, 255, 255, .7); outline-offset: 4p
 .rm-intro { position: absolute; inset: 0; z-index: 399; overflow: hidden; background: #000; pointer-events: none; }
 #v-phone .rm-intro { z-index: 3; }
 .rm-plane { position: absolute; inset: 0; transform-origin: 0 0; }
-.rm-intro.rm-moving .rm-plane, .rm-intro.rm-moving .rm-icon { will-change: transform; }
+.rm-intro .rm-plane, .rm-intro .rm-icon { will-change: transform; }   /* promoted up front: no hitch on the move's first frame */
 .rm-sway { animation: rm-sway var(--sway-t, 8s) ease-in-out var(--sway-d, 0s) infinite alternate; }
 @keyframes rm-sway { from { rotate: calc(var(--sway-a, 1deg) * -1); } to { rotate: var(--sway-a, 1deg); } }
 .rm-intro-item { position: absolute; }
@@ -270,3 +270,47 @@ html[data-v="phone"] .rm-facts dd { font-size: 10.6px; }
 html[data-v="phone"] .rm-footer-in { flex-direction: column; align-items: flex-start; gap: calc(20px / var(--rmz, 1)); padding: calc(30px / var(--rmz, 1)) calc(22px / var(--rmz, 1)) calc(34px / var(--rmz, 1)); }
 html[data-v="phone"] .rm-footer-links { width: 100%; }
 html[data-v="phone"] .rm-footer-btn { flex: 1 1 0; }
+
+/* landing: her name, role and NID above "Scroll to enter" (rm.js setupIntro); sizes in screen px via --rmz */
+.rm-intro-title::before { content: ''; position: absolute; inset: -40% -22%; z-index: -1; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, .62), rgba(0, 0, 0, .35) 55%, transparent); }
+.rm-intro-title { position: absolute; transform: translateX(-50%); isolation: isolate; display: flex; flex-direction: column; align-items: center; text-align: center;
+  white-space: nowrap; color: #fff; font-family: Figtree, system-ui, -apple-system, sans-serif; pointer-events: none;
+  text-shadow: 0 1px 14px rgba(0, 0, 0, .65); animation: rm-title-in 1.4s cubic-bezier(.16, .8, .24, 1) .25s backwards; }
+.rm-intro-title strong { font-weight: 500; font-variation-settings: 'wght' 560; font-size: calc(30px / var(--rmz, 1)); letter-spacing: .01em; line-height: 1.1; }
+.rm-intro-title span { margin-top: calc(6px / var(--rmz, 1)); font-size: calc(14px / var(--rmz, 1)); color: rgba(255, 255, 255, .82); letter-spacing: .03em; }
+.rm-intro-title em { margin-top: calc(8px / var(--rmz, 1)); font-style: normal; font-size: calc(11px / var(--rmz, 1)); letter-spacing: .16em; text-transform: uppercase;
+  color: rgb(214, 196, 240); padding: calc(4px / var(--rmz, 1)) calc(10px / var(--rmz, 1)); border: 1px solid rgba(214, 196, 240, .45); border-radius: 999px; }
+html[data-v="phone"] .rm-intro-title strong { font-size: calc(26px / var(--rmz, 1)); }
+html[data-v="phone"] .rm-intro-title span { font-size: calc(13px / var(--rmz, 1)); }
+html[data-v="phone"] .rm-intro-title em { font-size: calc(10px / var(--rmz, 1)); letter-spacing: .12em; }
+@keyframes rm-title-in { from { opacity: 0; translate: 0 8px; } }
+@media (prefers-reduced-motion: reduce) { .rm-intro-title { animation: none; } }
+/* footer: the NID line */
+.rm-footer-id em { font-style: normal; font-size: calc(11.5px / var(--rmz, 1)); letter-spacing: .14em; text-transform: uppercase; color: rgba(255, 255, 255, .92); margin-top: calc(4px / var(--rmz, 1)); }
+
+/* About: the NID line under "Hi, I'm Diya." (patches/100-about-facts.py); design px */
+.rm-nid { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 14px; font-family: Figtree, system-ui, sans-serif; }
+.rm-nid b { font-weight: 500; font-variation-settings: 'wght' 520; font-size: 11.5px; color: #fff; letter-spacing: .01em; }
+.rm-nid i { align-self: flex-start; margin-top: 3px; font-style: normal; font-size: 9px; letter-spacing: .03em; font-variation-settings: 'wght' 520; color: rgb(220, 204, 244);
+  padding: 3px 9px; border: 1px solid rgba(214, 196, 240, .5); border-radius: 999px; background: rgba(150, 110, 210, .14); white-space: nowrap; }
+.rm-nid u { text-decoration: none; font-size: 8.4px; color: rgba(255, 255, 255, .62); letter-spacing: .02em; }
+html[data-v="phone"] .rm-nid b { font-size: 11px; }
+html[data-v="phone"] .rm-nid i { font-size: 8.6px; }
+html[data-v="phone"] .rm-nid u { font-size: 8px; }
+
+/* phones: lighter frosted glass (the blur under the nav bars is redrawn on every scroll frame) */
+html[data-v="phone"] .rmwidget.widget-shape.rm-navbar { -webkit-backdrop-filter: blur(10px) saturate(150%) !important; backdrop-filter: blur(10px) saturate(150%) !important; }
+html[data-v="phone"] .rm-menu { -webkit-backdrop-filter: blur(16px) saturate(140%); backdrop-filter: blur(16px) saturate(140%); }
+
+/* project facts strip (rm.js projectFacts): screen px via --rmz */
+.rm-pfacts { position: absolute; box-sizing: border-box; z-index: 300; font-family: Figtree, system-ui, -apple-system, sans-serif; }
+.rm-pfacts dl { margin: 0; display: flex; gap: calc(36px / var(--rmz, 1)); padding: calc(26px / var(--rmz, 1)) 0;
+  border-bottom: 1px solid rgba(255, 255, 255, .12); margin-top: calc(28px / var(--rmz, 1)); margin-bottom: calc(10px / var(--rmz, 1)); }
+.rm-pfacts dl > div { flex: 1 1 0; min-width: 0; }
+.rm-pfacts dl > div:last-child { flex: 2.2 1 0; }
+.rm-pfacts dt { margin: 0 0 calc(7px / var(--rmz, 1)); font-size: calc(11px / var(--rmz, 1)); letter-spacing: .16em; text-transform: uppercase; color: rgba(255, 255, 255, .5); }
+.rm-pfacts dd { margin: 0; font-size: calc(15px / var(--rmz, 1)); line-height: 1.45; color: rgba(255, 255, 255, .9); }
+html[data-v="phone"] .rm-pfacts dl { display: grid; grid-template-columns: 1fr 1fr; gap: calc(18px / var(--rmz, 1)) calc(16px / var(--rmz, 1)); padding: calc(20px / var(--rmz, 1)) 0; margin-top: calc(20px / var(--rmz, 1)); }
+html[data-v="phone"] .rm-pfacts dl > div:last-child { grid-column: 1 / -1; }
+html[data-v="phone"] .rm-pfacts dd { font-size: calc(14px / var(--rmz, 1)); }

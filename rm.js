@@ -295,6 +295,7 @@
     scrollAnims = scrollAnims.filter(f => !(f.box && f.box.closest('.rm-intro-orig')));   // their originals are hidden now
     // "Scroll to enter" and its arrow scroll with the page on the phone: lift them above the scene
     const hint = document.createElement('div'); hint.className = 'rm-intro-hint'; layer.appendChild(hint);
+    let introTitle = null;
     root.querySelectorAll('.content-scroll-wrapper .page-content-container > .animation-container, .content-scroll-wrapper .page-content-container > .rmwidget').forEach(o => {
       const w = o.matches('.rmwidget') ? o : o.querySelector('.rmwidget');
       if (!w || w.matches('.widget-picture') || o.classList.contains('rm-intro-orig')) return;
@@ -309,6 +310,15 @@
       const im = new Image(); im.alt = t.img.alt || ''; im.src = t.img.getAttribute('src'); a.appendChild(im); iconsEl.appendChild(a); return a;
     });
     if (V === 'phone') article.insertBefore(layer, article.querySelector('.fixed-position-container-top')); else article.appendChild(layer);
+    // her name, what she does and NID on the first screen (Dev, 26 Nov: "make the fact that Diya is from NID more
+    // prominent"): above "Scroll to enter", fading out with the scene as the move starts
+    {
+      const words = [...root.querySelectorAll('.rmwidget.widget-text-v3')].find(w => /^\s*scroll\s*to\s*enter\s*$/i.test(w.textContent));
+      const title = document.createElement('div'); title.className = 'rm-intro-title';
+      title.innerHTML = '<strong>Diya Kamra</strong><em>Communication Designer &middot; NID 2026</em>';
+      hint.appendChild(title);
+      introTitle = { el: title, words };
+    }
     // the laptop layout has the words but no arrow (the phone has one): add the same small down-arrow under the words,
     // drifting down with the same 1.6 s pulse (26 Nov)
     if (V === 'desk' && !root.querySelector('.rm-hint-arrow')) {
@@ -346,6 +356,11 @@
       const slots = tiles.map((t, i) => { const h = iw * t.h / t.w, r = Math.floor(i / cols);
         return { x: screen.x + gap + (i % cols) * (iw + gap), y: screen.y + screen.h * 0.11 + r * (h + screen.h * 0.07), w: iw }; });
       G = { VW, VH, b, Bc, Bo, O, K, slots };
+      if (introTitle && introTitle.words) {
+        const fz = article.getBoundingClientRect().width / article.offsetWidth || 1, hr = hint.getBoundingClientRect(), wr = introTitle.words.getBoundingClientRect();
+        const t = introTitle.el; t.style.left = ((wr.left + wr.width / 2 - hr.left) / fz) + 'px';
+        t.style.top = Math.max(V === 'phone' ? 30 : 12, (wr.top - hr.top) / fz - t.offsetHeight - (V === 'phone' ? 22 : 16)) + 'px';
+      }
     }
     // a plane at depth d, camera progress e: scene point x -> O + t + s (B(x) - O), with s = K^(e d) and
     // B(x) = Bo + b (x - Bc); as one affine map: x -> A + k x
@@ -359,7 +374,6 @@
     let P = 0, ptr = { x: 0, y: 0 }, ptrT = { x: 0, y: 0 }, idle = 0;
     function render() {
       if (!G) return;
-      layer.classList.add('rm-moving'); clearTimeout(idle); idle = setTimeout(() => layer.classList.remove('rm-moving'), 200);
       // 0 -> .62 the camera flies in; .45 -> .72 screen and scene darken; .55 -> .95 icons rearrange into the grid;
       // .9 -> 1 the scene dissolves into the real page
       const e = easeIO(clamp01(P / 0.62));
@@ -389,7 +403,7 @@
     // ---- the moves ----
     // where the move lands: her Work position, or on the phone just clear of the nav bar above the first tile
     const END = V === 'phone' ? Math.min(cfg.end, Math.round(tiles[0].y - 62)) : cfg.end, FWD = 1900, BACK = 1500, REV = END - 140;
-    let state = 'scene', anim = null, cooldown = 0, dog = 0, stFix = null;
+    let state = 'scene', anim = null, cooldown = 0, dog = 0, stFix = null, settleT = 0;
     // While a move plays the opaque scene covers the page, so the page is put where the move ends at once and held
     // there: the icons fly onto tiles that stay still, and a wheel or flick that keeps going can't drag the grid
     // around under them (Dev, 26 Nov: "the scroll to enter is feeling a bit jittery"). Every exit lets go.
@@ -404,7 +418,8 @@
       if (to && wrapper.scrollTop < END) jumpTo(END);   // only towards the grid, never pulled back
       stFix = wrapper.scrollTop;
       let atTop = !!to || wrapper.scrollTop <= 2;
-      const finish = () => { cancelAnimationFrame(anim); anim = null; clearTimeout(dog); if (!atTop) jumpTo(0); P = to; stFix = null; render(); state = to ? 'grid' : 'scene'; hold(false); cooldown = performance.now() + 600; };
+      const finish = () => { cancelAnimationFrame(anim); anim = null; clearTimeout(dog); if (!atTop) jumpTo(0); P = to; stFix = null; render(); state = to ? 'grid' : 'scene'; hold(false); cooldown = performance.now() + 600;
+        clearTimeout(settleT); settleT = setTimeout(settle, 650); };
       const step = now => {
         P = from + (to - from) * clamp01((now - t0) / Math.max(1, span));
         if (!atTop && P < 0.88) { atTop = true; jumpTo(0); }   // going back: the scene is opaque again, so go to the top
@@ -414,12 +429,21 @@
       dog = setTimeout(() => { if (anim) finish(); }, span + 1500);   // never leave the page under the scene
     }
     let lastY = wrapper.scrollTop;
+    // Dev, 26 Nov (phone): "sometimes the website is getting stuck" on a black screen. A flick back up in the 0.6 s
+    // after the move into the grid (when scrolling is ignored, so one gesture can't bounce the move) carried the page
+    // to the top while the intro still thought it was at the grid: the black top of the page, nothing to bring the
+    // scene back. Once the pause is over, look at where the page really is and put the scene right.
+    function settle() {
+      if (anim || !G) return;
+      const y = wrapper.scrollTop; lastY = y;
+      if (state === 'grid' && y < REV) play(0);
+    }
     function onScrollIntro() {
       const y = wrapper.scrollTop, dir = y - lastY; lastY = y;
       if (anim || performance.now() < cooldown) return;
       if (state === 'scene' && y > 6 && dir > 0) play(1);
-      else if (state === 'grid' && y < REV && dir < 0) play(0);   // only when actually heading back up
-      else render();                                              // keep the (hidden) icons tracking the tiles
+      else if (state === 'grid' && y < REV && (dir < 0 || y < REV / 2)) play(0);   // heading back up, or already near the top
+      else if (P < 1) render();                                   // the scene is gone at P = 1: nothing to redraw
     }
     // a tap or click on the scene (not on a link) also enters
     const onTap = e => { if (state === 'scene' && !anim && !(e.target.closest && e.target.closest('a, button'))) { lastY = wrapper.scrollTop; play(1); } };
@@ -450,7 +474,7 @@
       sync() { if (anim) return; lastY = wrapper.scrollTop; if (lastY >= END - 2) { P = 1; state = 'grid'; } measure(); render(); },
       get state() { return state; },
       destroy() {
-        cancelAnimationFrame(anim); cancelAnimationFrame(pAnim); clearTimeout(dog); if (anim) hold(false); anim = null;
+        cancelAnimationFrame(anim); cancelAnimationFrame(pAnim); clearTimeout(dog); clearTimeout(settleT); if (anim) hold(false); anim = null;
         removeEventListener('pointermove', onMove); document.removeEventListener('visibilitychange', onHide); wrapper.removeEventListener('click', onTap);
         layer.remove(); hidden.forEach(o => o.classList.remove('rm-intro-orig'));
         moved.forEach(([o, par, next]) => par.insertBefore(o, next && next.parentElement === par ? next : null));
@@ -710,7 +734,9 @@
     if (wrapper.contains(e.target)) return;                                            // native scroll inside
     e.preventDefault();
     const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? innerHeight : 1;
-    wrapper.scrollTop += (e.deltaY * unit) / zoom;
+    const dy = (e.deltaY * unit) / zoom;
+    if (e.deltaMode === 0 && Math.abs(e.deltaY) < 50) wrapper.scrollTop += dy;   // touchpads send many small steps: follow them
+    else wrapper.scrollBy({ top: dy, behavior: REDUCED ? 'auto' : 'smooth' });  // a mouse notch glides
   }, { passive: false });
   const numOf = u => { try { const m = new URL(u).pathname.slice(BASE.length).match(/^\/(\d+)\/?$/); return m ? +m[1] : 1; } catch (e) { return 0; } };
   addEventListener('pageswap', e => {
@@ -749,6 +775,10 @@
     }).filter(Boolean);
     let changed = false;
     for (const it of items) {
+      if (it.w.classList.contains('rm-inserted')) {                       // e.g. the project facts strip
+        it.w.style.height = 'auto'; const need = Math.ceil(it.w.offsetHeight); it.w.style.height = need + 'px';
+        it.grow = need; changed = true; continue;
+      }
       if (!it.w.matches('.widget-text-v3')) continue;
       const tv = it.w.querySelector('.text-viewer'), text = it.w.textContent.replace(/\s+/g, ' ').trim();
       if (!tv || text.length < 90) continue;
@@ -757,6 +787,8 @@
       const body = spans.filter(s => s.textContent.trim().length > 20).map(s => +s.dataset.rmFs0);
       const cur = body.length ? Math.max(...body) : 0;
       if (!cur) continue;
+      if (it.w.dataset.rmNat0 === undefined) { const h0 = it.w.style.height; it.w.style.height = 'auto'; it.w.dataset.rmNat0 = tv.offsetHeight; it.w.style.height = h0; }
+      it.nat0 = +it.w.dataset.rmNat0 || 1;                 // where her lines actually ended (her boxes run taller)
       const f = Math.max(1, cfg.fs / cur);
       const real = ps.filter(p => p.textContent.replace(/[\s​-‍﻿]/g, '').length);
       const lead = real.length > 2 && real[0].textContent.trim().length < 30 ? real[0] : null;   // "Hi, I'm Diya."
@@ -772,12 +804,23 @@
         p.style.marginBottom = isReal && p !== real[real.length - 1] ? (cur * f * (p === lead ? 0.5 : 0.75)).toFixed(2) + 'px' : '0px';
       });
       it.w.classList.add('rm-read');
+      // her body greys go as dark as rgb(108,108,108) on near-black (3.6:1): lift neutral mid-greys toward white,
+      // keeping their order (bold stays brighter), unless the block sits on a picture or shape (a light panel)
+      const onLayer = items.some(o => o !== it && !o.w.matches('.widget-text-v3') && o.left <= it.left + 4 && o.right >= it.right - 4 && o.top <= it.top + 4 && o.bottom >= it.bottom - 4);
+      if (!onLayer) spans.forEach(sp => {
+        const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(sp.dataset.rmC0 !== undefined ? sp.dataset.rmC0 : sp.style.color || ''); if (!m) return;   // from her colour, every run
+        const [r, g, b] = [+m[1], +m[2], +m[3]];
+        if (Math.max(r, g, b) - Math.min(r, g, b) > 14 || r < 80 || r >= 200) return;     // only neutral mid-greys
+        const lift = v => Math.round(255 - (255 - v) * 0.6);
+        if (sp.dataset.rmC0 === undefined) sp.dataset.rmC0 = sp.style.color;
+        sp.style.color = `rgb(${lift(r)}, ${lift(g)}, ${lift(b)})`;
+      });
       const hOld = it.bottom - it.top;
       it.w.style.height = 'auto';
       const need = Math.ceil(tv.offsetHeight);
       it.w.style.height = Math.max(hOld, need) + 'px';
       if (it.o !== it.w && it.o.style.height) it.o.style.height = Math.max(hOld, need) + 'px';
-      it.grow = Math.max(0, need - hOld); changed = changed || it.grow > 0;
+      it.grow = Math.max(0, need - hOld); it.nat1 = need; changed = changed || it.grow > 0;
     }
     // push things down the page, column by column
     items.sort((a, b) => a.top - b.top);
@@ -786,7 +829,15 @@
       for (let j = 0; j < i; j++) {
         const a = items[j];
         // below = starts in a's lower half or later (her boxes often overlap a little), and overlaps it sideways
-        if (e.top > a.top + (a.bottom - a.top) / 2 && a.right > e.left + 2 && e.right > a.left + 2) e.shift = Math.max(e.shift, a.shift + a.grow);
+        // below = starts in a's lower half or later (her boxes often overlap a little), and overlaps it sideways; a picture
+        // (a sparkle, a doodle) that starts anywhere inside a growing text block moves down with the text it decorates
+        const side = a.right > e.left + 2 && e.right > a.left + 2;
+        if (side && a.nat1 && !e.w.matches('.widget-text-v3') && e.top > a.top + 2 && e.top < a.bottom) {
+          // a picture beside or in a growing text block: past her last line it keeps its gap under the text;
+          // among the lines it keeps its place along them
+          const c0 = a.top + a.nat0, c1 = a.top + a.nat1;
+          e.shift = Math.max(e.shift, a.shift + (e.top >= c0 - 4 ? Math.max(0, c1 - c0) : (e.top - a.top) * (a.nat1 / a.nat0 - 1)));
+        } else if (side && (e.top > a.top + (a.bottom - a.top) / 2 || (a.bottom === a.top && e.top >= a.top - 1))) e.shift = Math.max(e.shift, a.shift + a.grow);   // an inserted strip pushes what starts right at it
         // anything sitting on another layer (footer words on the footer band, a caption on a picture) moves with it
         else if (e.top >= a.top - 2 && e.bottom <= a.bottom + 2 && e.left >= a.left - 2 && e.right <= a.right + 2) e.shift = Math.max(e.shift, a.shift);
       }
@@ -797,6 +848,32 @@
     const extra = Math.max(0, ...(last.length ? last : items).map(e => e.shift + e.grow));
     bounds.style.height = (h0 + extra) + 'px';
     return changed;
+  }
+
+  // ---------- project facts (26 Nov): who it was for, the context, when, what she made: from her CV ----------
+  // A slim strip under the hero picture on the projects her CV covers. Inserted as a zero-height layer that
+  // readable() treats as growing, so everything under it moves down to make room.
+  const PROJECT_FACTS = {
+    9: [['Client', 'Kinavu Living'], ['Context', 'Internship / Graduation Project'], ['When', 'February–July 2026'], ['Scope', 'Brand imagery, visual assets and brand narrative']],
+    2: [['Client', 'Kinavu Living'], ['Project', 'Earth Song, the children’s collection'], ['When', '2026'], ['Scope', 'Logo, standalone and parent-brand lockups, packaging, promotional collaterals']],
+    3: [['Client', 'Dimension Decore, interior design studio'], ['Context', 'Freelance'], ['Scope', 'New logo, visual assets, brand narrative and social media']],
+  };
+  function projectFacts() {
+    const facts = PROJECT_FACTS[D.num]; if (!facts) return;
+    const pc = root.querySelector('.content-scroll-wrapper .page-content-container'); if (!pc || pc.querySelector(':scope > .rm-pfacts')) return;
+    const W = D.variants[V].w;
+    const hero = [...pc.querySelectorAll('.rmwidget.widget-picture')].map(w => { const o = w.closest('.animation-container') || w; const top = parseFloat((o.style.top ? o : w).style.top) || 0;
+      return { w, top, bottom: top + (parseFloat(w.style.height) || 0), width: parseFloat(w.style.width) || 0 }; })
+      .filter(h => h.width >= W * 0.85 && h.top < 420).sort((a, b) => a.top - b.top)[0];
+    if (!hero) return;
+    const el = document.createElement('div'); el.className = 'rmwidget rm-inserted rm-pfacts';
+    el.innerHTML = '<dl>' + facts.map(([k, v]) => `<div><dt>${k}</dt><dd></dd></div>`).join('') + '</dl>';
+    el.querySelectorAll('dd').forEach((dd, i) => { dd.textContent = facts[i][1]; });
+    const side = V === 'phone' ? 22 : 89;
+    // under a banner-like hero; above a tall one (Dimension Decore opens with a stack of tall slides)
+    const at = hero.bottom - hero.top > W * 0.8 ? Math.max(0, hero.top - 2) : hero.bottom;
+    Object.assign(el.style, { left: side + 'px', top: at + 'px', width: (W - side * 2) + 'px', height: '0px' });
+    pc.appendChild(el);
   }
 
   // ---------- footer (Dev, 26 Nov: "the bottom one doesn't look nice") ----------
@@ -819,7 +896,7 @@
     let f = pc.querySelector(':scope > .rm-footer');
     if (!f) {
       f = document.createElement('footer'); f.className = 'rm-footer';
-      f.innerHTML = `<div class="rm-footer-in"><div class="rm-footer-id"><strong>Diya Kamra</strong><span>Graphic &amp; Communication Designer</span></div>
+      f.innerHTML = `<div class="rm-footer-in"><div class="rm-footer-id"><strong>Diya Kamra</strong><span>Graphic &amp; Communication Designer</span><em>National Institute of Design (NID) &middot; 2026</em></div>
         <div class="rm-footer-links"><a class="rm-footer-btn rm-solid" href="${SITE.email}">Email</a><a class="rm-footer-btn" href="${SITE.linkedin}" target="_blank" rel="noopener">LinkedIn ↗</a></div></div>`;
       pc.appendChild(f);
     }
@@ -848,7 +925,7 @@
     document.querySelectorAll('.content-scroll-wrapper').forEach(w => w.removeEventListener('scroll', onScroll));
     wrapper.addEventListener('scroll', onScroll, { passive: true });
     curY = wrapper.scrollTop;
-    readable(); footer();
+    projectFacts(); readable(); footer();
     scalePaths(motionK); setupAnimations(); videos(); decorate(); phoneMenu();
     // the reading sizes are measured with her font: once it has loaded, measure again and put everything back in step
     if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(() => { if (V !== v) return; const grew = readable(); footer(); if (grew) { setupAnimations(); reveals(); } onScroll(); });
