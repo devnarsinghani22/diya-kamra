@@ -26,12 +26,17 @@
   let V = null, root, article, wrapper, bounds, zoom = 1, scrollAnims = [], cleanups = [];
   const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let curY = 0;                   // smoothed scroll position that scroll-linked motion follows (see frame())
+  let scrollHeld = false;         // the landing intro holds the page still while its move plays (see setupIntro)
   const wid = id => root.querySelector(`.rmwidget[data-id="${id}"]`);
   const clamp01 = t => Math.min(1, Math.max(0, t));
   const easeIO = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
   // her load animations (e.g. the About page figure walking in) start once the page has arrived, as in the live viewer,
   // which starts them ~0.7 s after opening a page; started at once they finish before anyone sees them
   const LOAD_DELAY = 700;
+  // "Scroll to enter" pulsed between 11% and 71% opacity: hard to see on the dark scene. Same pulse, brighter (26 Nov).
+  const HINT_IDS = ['6afe2ac4d5e1c0276569f18f', '6b02d66c7bf161fe4b5cb7ae', '6b02d6bfdc99aa72f2f5f195'];
+  for (const vv of Object.values(D.variants)) for (const r of vv.anims || []) if (HINT_IDS.includes(r.id))
+    for (const a of r.anims) if (a.type === 'load') for (const st of a.steps) { if (st.use_opacity) { st.from_opacity = 35; st.opacity = 95; } }
 
   // animation-containers wrapping a widget, outermost first: one per animation that has steps
   function containersOf(el) {
@@ -192,7 +197,7 @@
     const vh = wrapper.clientHeight;
     for (const f of scrollAnims) f(vh);
     if (intro) intro.onScroll();
-    aidsUpdate(); if (pending.length) revealTick();
+    aidsUpdate(); arrowsUpdate(); if (pending.length) revealTick();
     if (curY !== target) requestAnimationFrame(frame); else { ticking = false; last = 0; }
   }
   function onScroll() { if (ticking) return; ticking = true; requestAnimationFrame(frame); }
@@ -304,6 +309,18 @@
       const im = new Image(); im.alt = t.img.alt || ''; im.src = t.img.getAttribute('src'); a.appendChild(im); iconsEl.appendChild(a); return a;
     });
     if (V === 'phone') article.insertBefore(layer, article.querySelector('.fixed-position-container-top')); else article.appendChild(layer);
+    // the laptop layout has the words but no arrow (the phone has one): add the same small down-arrow under the words,
+    // drifting down with the same 1.6 s pulse (26 Nov)
+    if (V === 'desk' && !root.querySelector('.rm-hint-arrow')) {
+      const words = [...root.querySelectorAll('.rmwidget.widget-text-v3')].find(w => /^\s*scroll\s*to\s*enter\s*$/i.test(w.textContent));
+      if (words) {
+        let box = words; while (box.parentElement && box.parentElement.classList.contains('animation-container')) box = box.parentElement;
+        const arrow = document.createElement('div'); arrow.className = 'rm-hint-arrow';   // inside her wrapper: fades out with the words on scroll
+        arrow.innerHTML = '<svg viewBox="0 0 10 16" aria-hidden="true"><path d="M5 1v13M1 10l4 4 4-4"/></svg>';
+        arrow.style.left = (box.offsetWidth / 2 - 5) + 'px'; arrow.style.top = (box.offsetHeight + 3) + 'px';
+        box.appendChild(arrow);
+      }
+    }
 
     // ---- geometry (re-measured on resize, e.g. a phone's address bar showing or hiding) ----
     let G = null;
@@ -357,7 +374,7 @@
       shade.style.opacity = clamp01((P - 0.45) / 0.25);
       veil.style.opacity = clamp01((P - 0.52) / 0.2);
       hint.style.opacity = 1 - clamp01(P * 6);
-      const q = easeIO(clamp01((P - 0.55) / 0.4)), st = wrapper.scrollTop;
+      const q = easeIO(clamp01((P - 0.55) / 0.4)), st = stFix !== null ? stFix : wrapper.scrollTop;
       icons.forEach((a, i) => {
         const sl = G.slots[i], t = tiles[i];
         const vx = lap.A.x + lap.k * sl.x, vy = lap.A.y + lap.k * sl.y, vw = sl.w * lap.k;        // on the laptop screen
@@ -372,16 +389,27 @@
     // ---- the moves ----
     // where the move lands: her Work position, or on the phone just clear of the nav bar above the first tile
     const END = V === 'phone' ? Math.min(cfg.end, Math.round(tiles[0].y - 62)) : cfg.end, FWD = 1900, BACK = 1500, REV = END - 140;
-    let state = 'scene', anim = null, cooldown = 0, dog = 0;
+    let state = 'scene', anim = null, cooldown = 0, dog = 0, stFix = null;
+    // While a move plays the opaque scene covers the page, so the page is put where the move ends at once and held
+    // there: the icons fly onto tiles that stay still, and a wheel or flick that keeps going can't drag the grid
+    // around under them (Dev, 26 Nov: "the scroll to enter is feeling a bit jittery"). Every exit lets go.
+    const jumpTo = y => { wrapper.scrollTop = y; curY = wrapper.scrollTop; lastY = curY; };
+    const hold = on => { scrollHeld = on; wrapper.style.overflowY = on ? 'hidden' : ''; };
     function play(to) {
       if (anim) return;
       state = to ? 'toGrid' : 'toScene';
       const from = P, span = Math.abs(to - from) * (to ? FWD : BACK);
       const t0 = performance.now();
-      if (to && wrapper.scrollTop < END) wrapper.scrollTo({ top: END, behavior: 'smooth' });   // only towards the grid, never pulled back
-      if (!to && wrapper.scrollTop > 2) wrapper.scrollTo({ top: 0, behavior: 'smooth' });
-      const finish = () => { cancelAnimationFrame(anim); anim = null; clearTimeout(dog); P = to; render(); state = to ? 'grid' : 'scene'; cooldown = performance.now() + 600; };
-      const step = now => { P = from + (to - from) * clamp01((now - t0) / Math.max(1, span)); render(); if (P === to) finish(); else anim = requestAnimationFrame(step); };
+      hold(true);
+      if (to && wrapper.scrollTop < END) jumpTo(END);   // only towards the grid, never pulled back
+      stFix = wrapper.scrollTop;
+      let atTop = !!to || wrapper.scrollTop <= 2;
+      const finish = () => { cancelAnimationFrame(anim); anim = null; clearTimeout(dog); if (!atTop) jumpTo(0); P = to; stFix = null; render(); state = to ? 'grid' : 'scene'; hold(false); cooldown = performance.now() + 600; };
+      const step = now => {
+        P = from + (to - from) * clamp01((now - t0) / Math.max(1, span));
+        if (!atTop && P < 0.88) { atTop = true; jumpTo(0); }   // going back: the scene is opaque again, so go to the top
+        render(); if (P === to) finish(); else anim = requestAnimationFrame(step);
+      };
       anim = requestAnimationFrame(step);
       dog = setTimeout(() => { if (anim) finish(); }, span + 1500);   // never leave the page under the scene
     }
@@ -396,7 +424,7 @@
     // a tap or click on the scene (not on a link) also enters
     const onTap = e => { if (state === 'scene' && !anim && !(e.target.closest && e.target.closest('a, button'))) { lastY = wrapper.scrollTop; play(1); } };
     wrapper.addEventListener('click', onTap);
-    const onHide = () => { if (document.hidden && anim) { P = state === 'toGrid' ? 1 : 0; render(); cancelAnimationFrame(anim); anim = null; state = P ? 'grid' : 'scene'; } };
+    const onHide = () => { if (document.hidden && anim) { cancelAnimationFrame(anim); anim = null; clearTimeout(dog); P = state === 'toGrid' ? 1 : 0; if (!P && wrapper.scrollTop > 2) jumpTo(0); stFix = null; render(); state = P ? 'grid' : 'scene'; hold(false); } };
     document.addEventListener('visibilitychange', onHide);
     // laptops: the scene leans a little toward the pointer while it is at rest
     let pAnim = 0;
@@ -422,7 +450,7 @@
       sync() { if (anim) return; lastY = wrapper.scrollTop; if (lastY >= END - 2) { P = 1; state = 'grid'; } measure(); render(); },
       get state() { return state; },
       destroy() {
-        cancelAnimationFrame(anim); cancelAnimationFrame(pAnim); clearTimeout(dog);
+        cancelAnimationFrame(anim); cancelAnimationFrame(pAnim); clearTimeout(dog); if (anim) hold(false); anim = null;
         removeEventListener('pointermove', onMove); document.removeEventListener('visibilitychange', onHide); wrapper.removeEventListener('click', onTap);
         layer.remove(); hidden.forEach(o => o.classList.remove('rm-intro-orig'));
         moved.forEach(([o, par, next]) => par.insertBefore(o, next && next.parentElement === par ? next : null));
@@ -457,9 +485,10 @@
       const word = t.textContent.trim().toLowerCase();
       if (!['about', 'contact'].includes(word) || t.querySelector('a') || t.dataset.rmLink) return;
       const href = word === 'about' ? url(SITE.about) : SITE.contact;
-      t.dataset.rmLink = href; t.setAttribute('role', 'link'); t.tabIndex = 0; t.style.cursor = 'pointer';
-      t.addEventListener('click', () => { location.href = href; });
-      t.addEventListener('keydown', e => { if (e.key === 'Enter') location.href = href; });
+      t.dataset.rmLink = href; t.setAttribute('role', word === 'contact' ? 'button' : 'link'); t.tabIndex = 0; t.style.cursor = 'pointer';
+      const go = () => { if (word === 'contact') openContact(); else location.href = href; };
+      t.addEventListener('click', go);
+      t.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
     });
   }
   // images ease in once they reach the screen; anything already passed (a jump, a fast fling) shows at once
@@ -530,7 +559,50 @@
   const MENU = { burger: 'f90e8a', cross: 'e9e29c', panel: 'e6ec15', links: 'cd0e1d' };
   // her own destinations, used where a page lacks the Readymag menu or nav links (page 9 on the phone, About/Contact
   // as plain text on most project pages on the laptop; the same on her live Readymag)
-  const SITE = { about: 10, contact: 'http://www.linkedin.com/in/diyakamra', email: 'mailto:diyakamra1019@gmail.com', work: 583 };
+  const SITE = { about: 10, contact: 'mailto:diyakamra1019@gmail.com', linkedin: 'https://www.linkedin.com/in/diyakamra/', email: 'mailto:diyakamra1019@gmail.com', work: 583,
+                 cv: null };   // cv: '/diya-kamra-cv.pdf' once her PDF is in site/ (adds a CV button to the contact panel and About)
+
+  // ---------- contact panel (26 Nov) ----------
+  // Every "Contact" (laptop top bar, phone menu, landing) opened LinkedIn on some pages and email on others. One small
+  // panel now: her address (tap to copy, or write to her), LinkedIn in a new tab, and her CV when there is one.
+  let contactEl = null;
+  function contactPanel() {
+    if (contactEl) return contactEl;
+    const addr = SITE.email.replace(/^mailto:/, '');
+    const el = document.createElement('div'); el.className = 'rm-contact'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', 'Contact Diya');
+    el.innerHTML = `<div class="rm-contact-card"><button type="button" class="rm-contact-x" aria-label="Close"><span></span><span></span></button>
+      <p class="rm-contact-k">Say hello</p><a class="rm-contact-mail" href="${SITE.email}"></a>
+      <div class="rm-contact-row"><button type="button" class="rm-contact-copy">Copy email</button><a class="rm-contact-btn" href="${SITE.email}">Write to Diya</a></div>
+      <div class="rm-contact-row rm-contact-more"><a href="${SITE.linkedin}" target="_blank" rel="noopener">LinkedIn ↗</a>${SITE.cv ? `<a href="${SITE.cv}" target="_blank" rel="noopener">CV ↓</a>` : ''}</div></div>`;
+    el.querySelector('.rm-contact-mail').textContent = addr;
+    const copy = el.querySelector('.rm-contact-copy');
+    copy.addEventListener('click', () => {
+      const done = () => { copy.textContent = 'Copied'; copy.classList.add('rm-done'); setTimeout(() => { copy.textContent = 'Copy email'; copy.classList.remove('rm-done'); }, 1800); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(addr).then(done, () => location.href = SITE.email);
+      else location.href = SITE.email;
+    });
+    el.addEventListener('click', e => { if (e.target === el || e.target.closest('.rm-contact-x')) closeContact(); });
+    document.body.appendChild(el); contactEl = el;
+    return el;
+  }
+  let contactFrom = null;
+  function openContact() {
+    const el = contactPanel(); contactFrom = document.activeElement; el.style.zoom = String(1 / zoom);   // sized in screen px
+    html.classList.remove('rm-menu-open');
+    requestAnimationFrame(() => { html.classList.add('rm-contact-open'); el.querySelector('.rm-contact-copy').focus({ preventScroll: true }); });
+  }
+  function closeContact() { if (!html.classList.contains('rm-contact-open')) return; html.classList.remove('rm-contact-open'); if (contactFrom && contactFrom.focus) contactFrom.focus({ preventScroll: true }); }
+  // her laptop nav words are not links: a clear shape on top of each word carries the link (LinkedIn, for "Contact"),
+  // so look at what is under the pointer, not only at the link's own text
+  const CONTACT_RE = /^contact$/i;
+  const isContact = (a, e) => a && (CONTACT_RE.test(a.textContent.replace(/^\s*\d+/, '').trim()) ||
+    (/linkedin\.com/.test(a.getAttribute('href') || '') && !a.textContent.trim() && document.elementsFromPoint(e.clientX, e.clientY)
+      .some(el => el.matches && el.matches('.rmwidget.widget-text-v3') && CONTACT_RE.test(el.textContent.trim()))));
+  addEventListener('click', e => {
+    const a = e.target.closest && e.target.closest('a'); if (!isContact(a, e)) return;
+    e.preventDefault(); e.stopPropagation(); openContact();
+  }, true);
+  addEventListener('keydown', e => { if (e.key === 'Escape') closeContact(); });
   let menuBits = [];
   const closeMenu = () => html.classList.remove('rm-menu-open');
   function phoneMenu() {
@@ -545,9 +617,9 @@
     const workPos = work ? +work.dataset.anchorLinkPos : SITE.work;
     const own = links ? [...links.querySelectorAll('a[href]')].map(a => ({ label: nice(a.textContent.trim()), href: a.getAttribute('href') })) : [];
     const items = [{ label: 'Work', href: D.num === 1 ? '#' : url(1) + '#y' + workPos, work: D.num === 1 },
-                   ...(own.length ? own : [{ label: 'About', href: url(SITE.about) }, { label: 'Contact', href: SITE.contact }])];
+                   ...(own.length ? own : [{ label: 'About', href: url(SITE.about) }, { label: 'Contact', href: SITE.contact }])].map(it => /^contact$/i.test(it.label) ? { ...it, href: SITE.contact } : it);
     const mail = root.querySelector('a[href^="mailto:"]') || { getAttribute: () => SITE.email };
-    const li = [...root.querySelectorAll('a[href*="linkedin.com"]')][0] || { getAttribute: () => SITE.contact };
+    const li = { getAttribute: () => SITE.linkedin };
     const btn = document.createElement('button'); btn.className = 'rm-menu-btn'; btn.type = 'button';
     btn.setAttribute('aria-label', 'Menu'); btn.setAttribute('aria-expanded', 'false'); btn.innerHTML = '<span></span><span></span>';
     const nav = document.createElement('nav'); nav.className = 'rm-menu'; nav.setAttribute('aria-label', 'Menu');
@@ -574,22 +646,39 @@
   // ---------- arrows + keys ----------
   const BASE = D.base || '';      // set when hosted under a sub-path (e.g. GitHub Pages project site)
   const url = n => BASE + (n === 1 ? '/' : `/${n}/`);
+  // Side arrows go through the work in the grid's order (landing grid, then About), not by page number (26 Nov).
+  // They no longer sit over her artwork the whole time: on a laptop one shows when the pointer comes near its edge,
+  // and both show near the end of a page (on the phone only there). Keyboard focus always shows them.
+  const SEQ = [1, 9, 2, 3, 4, 5, 6, 7, 8, 10];
+  let arrowWrap = null;
   function arrows() {
-    document.querySelectorAll('.rm-arrows').forEach(x => x.remove());
+    document.querySelectorAll('.rm-arrows').forEach(x => x.remove()); arrowWrap = null;
     const show = (V === 'desk' ? D.arrows : D.phoneArrows) && D.num > 1;   // the landing page needs no project arrows
     if (!show) return;
     const wrap = document.createElement('div'); wrap.className = 'rm-arrows';
     const mk = (dir, n) => {
-      const a = document.createElement('a'); a.className = 'rm-arrow ' + dir; a.href = url(n);
-      a.setAttribute('aria-label', dir === 'left' ? 'Previous page' : 'Next page');
+      const a = document.createElement('a'); a.className = 'rm-arrow ' + dir; a.href = n === 1 ? url(1) + '#y' + SITE.work : url(n);
+      a.setAttribute('aria-label', n === 1 ? 'All work' : dir === 'left' ? 'Previous project' : 'Next project');
       a.innerHTML = `<svg viewBox="0 0 18 34"><polyline points="${dir === 'left' ? '17,1 1,17 17,33' : '1,1 17,17 1,33'}"/></svg>`;
       wrap.appendChild(a);
     };
-    if (D.num > 1) mk('left', D.num - 1);
-    if (D.num < D.total) mk('right', D.num + 1);
+    const i = SEQ.indexOf(D.num);
+    if (i > 0) mk('left', SEQ[i - 1]);
+    if (i >= 0 && i < SEQ.length - 1) mk('right', SEQ[i + 1]);
     article.appendChild(wrap);
     wrap.style.zoom = 1 / zoom;
+    arrowWrap = wrap; arrowsUpdate();
   }
+  function arrowsUpdate() {
+    if (!arrowWrap) return;
+    const end = wrapper.scrollTop + wrapper.clientHeight > wrapper.scrollHeight - wrapper.clientHeight * 1.1;
+    arrowWrap.classList.toggle('rm-at-end', end);
+  }
+  if (matchMedia('(hover: hover)').matches) addEventListener('pointermove', e => {
+    if (!arrowWrap || e.pointerType === 'touch') return;
+    arrowWrap.classList.toggle('rm-near-left', e.clientX < 150);
+    arrowWrap.classList.toggle('rm-near-right', e.clientX > innerWidth - 150);
+  }, { passive: true });
   // Readymag anchor links ("Work", "Scroll Up", the phone "Home"): go to a position on a page, in design units,
   // smooth-scrolled like the live viewer; on another page, after loading it (#y<pos>)
   const anchorOf = t => t && t.closest && t.closest('a.anchor-link[data-anchor-link-pos]');
@@ -608,14 +697,17 @@
     // keyboard scrolling goes to the page's scroller wherever focus is
     const page = wrapper.clientHeight * 0.9;
     const step = { ArrowDown: 60, ArrowUp: -60, PageDown: page, PageUp: -page, ' ': e.shiftKey ? -page : page }[e.key];
-    if (step !== undefined) { e.preventDefault(); wrapper.scrollTop += step; }
+    if (step !== undefined) { e.preventDefault(); if (!scrollHeld) wrapper.scrollTop += step; }
+    if (scrollHeld) return;
     if (e.key === 'Home') wrapper.scrollTop = 0;
     if (e.key === 'End') wrapper.scrollTop = wrapper.scrollHeight;
   });
   // Pinned (fixed) layers sit outside the scroller. Safari/Firefox don't hand their wheel events to it,
   // so forward them (the live viewer does the same with its own wheel handling).
   addEventListener('wheel', e => {
-    if (!wrapper || wrapper.contains(e.target) || e.ctrlKey || html.classList.contains('rm-menu-open')) return;      // native scroll inside; ctrl = pinch zoom
+    if (!wrapper || e.ctrlKey || html.classList.contains('rm-menu-open')) return;      // ctrl = pinch zoom
+    if (scrollHeld) { e.preventDefault(); return; }                                    // the intro is mid-move
+    if (wrapper.contains(e.target)) return;                                            // native scroll inside
     e.preventDefault();
     const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? innerHeight : 1;
     wrapper.scrollTop += (e.deltaY * unit) / zoom;
@@ -630,6 +722,122 @@
     if (e.viewTransition && from) e.viewTransition.types.add(D.num > from ? 'forward' : 'backward');
   });
 
+  // ---------- readable text (Dev, 26 Nov: the About text is "very difficult to read"; "multiple things like this") ----------
+  // Her body copy was set small and tight: ~9 px on a phone, lines 1.1 apart. Every long text block gets a reading size
+  // and line spacing, a short opening line ("Hi, I'm Diya.") becomes a headline, and paragraphs get air between them.
+  // A block that grows pushes down only what sits below it in its own column (anything it overlaps sideways), and that
+  // push carries on down the page, so side-by-side layouts keep their shape and the gaps between things stay as she set
+  // them. Runs before her animations are set up (they read positions), and again once the font has loaded.
+  const READ = { desk: { fs: 11.5, lh: 1.62 }, phone: { fs: 12, lh: 1.58 } };
+  function readable() {
+    const cfg = READ[V], pc = root.querySelector('.content-scroll-wrapper .page-content-container');
+    if (!cfg || !pc || /[?&]noread\b/.test(location.search)) return false;   // ?noread: her original sizes, for comparison
+    const items = [...pc.children].map(o => {
+      const w = o.matches('.rmwidget') ? o : o.querySelector('.rmwidget');
+      if (!w) return null;
+      const posEl = o.style.top ? o : w;                                   // which element carries the position
+      if (posEl.dataset.rmTop0 === undefined) posEl.dataset.rmTop0 = parseFloat(posEl.style.top) || 0;
+      if (w.dataset.rmH0 === undefined) w.dataset.rmH0 = parseFloat(w.style.height) || parseFloat(o.style.height) || 0;
+      const top = +posEl.dataset.rmTop0, h = +w.dataset.rmH0;
+      const left = (parseFloat(o.style.left) || 0) + (o === w ? 0 : parseFloat(w.style.left) || 0), width = parseFloat(w.style.width) || 0;
+      // a layer that slides along a motion path covers every x it travels through (e.g. a heading resting off-screen
+      // to the right that slides in over the text column)
+      let dx0 = 0, dx1 = 0;
+      const path = (/path\("([^"]*)"\)/.exec(o.dataset.rmPath || o.style.offsetPath || '') || [])[1];
+      if (path) { const xs = (path.match(/-?\d+(\.\d+)?/g) || []).map(Number).filter((n, i) => i % 2 === 0); if (xs.length > 1) { dx0 = Math.min(...xs) - xs[0]; dx1 = Math.max(...xs) - xs[0]; } }
+      return { o, w, posEl, top, bottom: top + h, left: left + dx0, right: left + width + dx1, grow: 0, shift: 0 };
+    }).filter(Boolean);
+    let changed = false;
+    for (const it of items) {
+      if (!it.w.matches('.widget-text-v3')) continue;
+      const tv = it.w.querySelector('.text-viewer'), text = it.w.textContent.replace(/\s+/g, ' ').trim();
+      if (!tv || text.length < 90) continue;
+      const spans = [...tv.querySelectorAll('span')], ps = [...tv.querySelectorAll('p')];
+      spans.forEach(s => { if (s.dataset.rmFs0 === undefined) s.dataset.rmFs0 = parseFloat(s.style.fontSize) || parseFloat(getComputedStyle(s).fontSize); });
+      const body = spans.filter(s => s.textContent.trim().length > 20).map(s => +s.dataset.rmFs0);
+      const cur = body.length ? Math.max(...body) : 0;
+      if (!cur) continue;
+      const f = Math.max(1, cfg.fs / cur);
+      const real = ps.filter(p => p.textContent.replace(/[\s​-‍﻿]/g, '').length);
+      const lead = real.length > 2 && real[0].textContent.trim().length < 30 ? real[0] : null;   // "Hi, I'm Diya."
+      spans.forEach(s => {
+        const k = lead && lead.contains(s) ? 1.9 : 1;
+        s.style.fontSize = (+s.dataset.rmFs0 * f * k).toFixed(2) + 'px';
+        if (/'wght' 3\d\d/.test(s.style.fontVariationSettings)) s.style.fontVariationSettings = lead && lead.contains(s) ? "'wght' 460" : "'wght' 360";
+      });
+      ps.forEach(p => {
+        const isReal = real.includes(p), size = cur * f * (p === lead ? 1.9 : 1);
+        p.style.fontSize = size.toFixed(2) + 'px';
+        p.style.lineHeight = isReal ? (size * (p === lead ? 1.2 : cfg.lh)).toFixed(2) + 'px' : (cur * f * 0.5).toFixed(2) + 'px';
+        p.style.marginBottom = isReal && p !== real[real.length - 1] ? (cur * f * (p === lead ? 0.5 : 0.75)).toFixed(2) + 'px' : '0px';
+      });
+      it.w.classList.add('rm-read');
+      const hOld = it.bottom - it.top;
+      it.w.style.height = 'auto';
+      const need = Math.ceil(tv.offsetHeight);
+      it.w.style.height = Math.max(hOld, need) + 'px';
+      if (it.o !== it.w && it.o.style.height) it.o.style.height = Math.max(hOld, need) + 'px';
+      it.grow = Math.max(0, need - hOld); changed = changed || it.grow > 0;
+    }
+    // push things down the page, column by column
+    items.sort((a, b) => a.top - b.top);
+    for (let i = 0; i < items.length; i++) {
+      const e = items[i];
+      for (let j = 0; j < i; j++) {
+        const a = items[j];
+        // below = starts in a's lower half or later (her boxes often overlap a little), and overlaps it sideways
+        if (e.top > a.top + (a.bottom - a.top) / 2 && a.right > e.left + 2 && e.right > a.left + 2) e.shift = Math.max(e.shift, a.shift + a.grow);
+        // anything sitting on another layer (footer words on the footer band, a caption on a picture) moves with it
+        else if (e.top >= a.top - 2 && e.bottom <= a.bottom + 2 && e.left >= a.left - 2 && e.right <= a.right + 2) e.shift = Math.max(e.shift, a.shift);
+      }
+      e.posEl.style.top = (e.top + e.shift) + 'px';
+    }
+    if (bounds.dataset.rmH0 === undefined) bounds.dataset.rmH0 = parseFloat(bounds.style.height) || 0;
+    const h0 = +bounds.dataset.rmH0, last = items.filter(e => e.bottom >= h0 - 40);
+    const extra = Math.max(0, ...(last.length ? last : items).map(e => e.shift + e.grow));
+    bounds.style.height = (h0 + extra) + 'px';
+    return changed;
+  }
+
+  // ---------- footer (Dev, 26 Nov: "the bottom one doesn't look nice") ----------
+  // Her footer was three small words on a purple strip under a dead gap. Every page now closes with a proper footer:
+  // her name and what she does, then Email and LinkedIn as real buttons (side by side on a laptop, stacked on the
+  // phone), on her purple, a short step under the last piece of work. Her strip and words stay in the page, hidden.
+  const FOOT_STRIP = { desk: 'df3625', phone: '574b45' };
+  function footer() {
+    const pc = root.querySelector('.content-scroll-wrapper .page-content-container');
+    const band = pc && pc.querySelector(`.rmwidget.widget-shape[data-id$="${FOOT_STRIP[V]}"]`);
+    if (!band) return;
+    const outerOf = el => { let o = el; while (o.parentElement && o.parentElement !== pc) o = o.parentElement; return o; };
+    const topOf = o => { const w = o.matches('.rmwidget') ? o : o.querySelector('.rmwidget'); const posEl = o.style.top ? o : w; return posEl ? parseFloat(posEl.style.top) || 0 : 0; };
+    const hOf = o => { const w = o.matches('.rmwidget') ? o : o.querySelector('.rmwidget'); return w ? parseFloat(w.style.height) || 0 : 0; };
+    const bandO = outerOf(band), bandTop = topOf(bandO);
+    let purple = getComputedStyle(band).backgroundColor;
+    if (!purple || purple === 'rgba(0, 0, 0, 0)') { const sh = band.querySelector('[fill]:not([fill="none"])'); purple = sh ? sh.getAttribute('fill') : 'rgb(126, 87, 182)'; }
+    const hide = new Set([bandO, ...[...pc.querySelectorAll('.rmwidget.rm-foot')].map(outerOf)]);
+    hide.forEach(o => o.classList.add('rm-foot-hidden'));
+    let f = pc.querySelector(':scope > .rm-footer');
+    if (!f) {
+      f = document.createElement('footer'); f.className = 'rm-footer';
+      f.innerHTML = `<div class="rm-footer-in"><div class="rm-footer-id"><strong>Diya Kamra</strong><span>Graphic &amp; Communication Designer</span></div>
+        <div class="rm-footer-links"><a class="rm-footer-btn rm-solid" href="${SITE.email}">Email</a><a class="rm-footer-btn" href="${SITE.linkedin}" target="_blank" rel="noopener">LinkedIn ↗</a></div></div>`;
+      pc.appendChild(f);
+    }
+    // snug under the last thing on the page (not counting anything parked below the page's end)
+    const H0 = parseFloat(bounds.style.height) || 0;
+    let bottom = 0;
+    for (const o of pc.children) {
+      if (o === f || hide.has(o)) continue;
+      const t = topOf(o); if (t > H0 - 2) continue;
+      bottom = Math.max(bottom, t + hOf(o));
+    }
+    const top = Math.min(bandTop, bottom + (V === 'phone' ? 30 : 44));
+    const W = D.variants[V].w;
+    Object.assign(f.style, { top: top + 'px', left: '0px', width: W + 'px', background: purple });
+    const h = f.offsetHeight;
+    bounds.style.height = (top + h) + 'px';
+  }
+
   // ---------- layout ----------
   function activate(v) {
     V = v; html.dataset.v = v;
@@ -640,7 +848,10 @@
     document.querySelectorAll('.content-scroll-wrapper').forEach(w => w.removeEventListener('scroll', onScroll));
     wrapper.addEventListener('scroll', onScroll, { passive: true });
     curY = wrapper.scrollTop;
+    readable(); footer();
     scalePaths(motionK); setupAnimations(); videos(); decorate(); phoneMenu();
+    // the reading sizes are measured with her font: once it has loaded, measure again and put everything back in step
+    if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(() => { if (V !== v) return; const grew = readable(); footer(); if (grew) { setupAnimations(); reveals(); } onScroll(); });
   }
   // nav words come in pairs: a white word that fades on hover over a purple twin. Her twins' boxes are a little
   // different in size, so the centred letters sit ~1px apart and a purple fringe shows at rest: put each twin's
@@ -665,7 +876,7 @@
   function layout() {
     const v = innerWidth < PHONE_MAX ? 'phone' : 'desk';
     zoom = Math.min(innerWidth, SCALE_MAX) / D.variants[v].w;
-    html.style.zoom = zoom;
+    html.style.zoom = zoom; html.style.setProperty('--rmz', zoom);   // --rmz: lets CSS size things in screen px
     if (v !== V) activate(v);
     const aw = innerWidth / zoom, ah = innerHeight / zoom;
     article.style.width = aw + 'px'; article.style.height = ah + 'px';

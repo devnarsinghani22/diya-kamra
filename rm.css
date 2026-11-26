@@ -196,3 +196,77 @@ a[class*="link-style-"]:hover, a[class*="link-style-"]:hover *, a[class*="link-s
 a[class*="link-style-"].current, a[class*="link-style-"].current * { color: inherit !important; background: none !important; }
 .rm-foot a[class*="link-style-"]:hover, .rm-foot a[class*="link-style-"]:hover *, .rm-foot a[class*="link-style-"]:active, .rm-foot a[class*="link-style-"]:active * {
   color: #fff !important; text-decoration: underline !important; text-underline-offset: 3px; }
+
+/* laptop "Scroll to enter" arrow (rm.js setupIntro): drifts down with the words' 1.6 s pulse */
+.rm-hint-arrow { position: absolute; width: 10px; height: 16px; color: #fff; animation: rm-hint 1.6s ease-in infinite; pointer-events: none; }
+.rm-hint-arrow svg { display: block; width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
+@keyframes rm-hint { from { opacity: .35; translate: 0 0; } to { opacity: .95; translate: 0 6px; } }
+@media (prefers-reduced-motion: reduce) { .rm-hint-arrow { animation: none; opacity: .8; } }
+
+/* side arrows stay off her artwork: shown near their edge (laptop pointer), near the end of a page, or on keyboard focus */
+.rm-arrow { opacity: 0; pointer-events: none; transition: opacity .35s ease, transform .3s ease, background-color .3s ease; }
+.rm-arrows.rm-at-end .rm-arrow, .rm-arrows.rm-near-left .rm-arrow.left, .rm-arrows.rm-near-right .rm-arrow.right { opacity: .78; pointer-events: all; }
+.rm-arrows .rm-arrow:hover, .rm-arrow:focus-visible { opacity: 1; pointer-events: all; }
+
+/* contact panel (rm.js openContact): one place for her email, LinkedIn and CV */
+.rm-contact { position: fixed; inset: 0; z-index: 9000; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;
+  background: rgba(0, 0, 0, .55); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); opacity: 0; visibility: hidden;
+  transition: opacity .35s ease, visibility 0s linear .35s; font-family: Figtree, system-ui, -apple-system, sans-serif; }
+html.rm-contact-open .rm-contact { opacity: 1; visibility: visible; transition: opacity .35s ease; }
+.rm-contact-card { position: relative; width: min(420px, 100%); box-sizing: border-box; padding: 34px 30px 28px; border-radius: 18px; color: #fff;
+  background: rgba(18, 18, 20, .92); box-shadow: 0 30px 80px rgba(0, 0, 0, .55), inset 0 0 0 1px rgba(255, 255, 255, .09);
+  transform: translateY(14px) scale(.98); transition: transform .45s cubic-bezier(.2, .75, .2, 1); }
+html.rm-contact-open .rm-contact-card { transform: none; }
+.rm-contact-k { margin: 0 0 10px; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: rgba(255, 255, 255, .55); }
+.rm-contact-mail { display: block; font-size: clamp(19px, 5.2vw, 24px); font-weight: 500; color: #fff; text-decoration: none; word-break: break-all; line-height: 1.25; }
+.rm-contact-mail:hover { color: rgb(196, 172, 232); }
+.rm-contact-row { display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+.rm-contact-row > * { flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: center; min-height: 46px; padding: 0 18px; border-radius: 999px;
+  font: 500 15px/1 Figtree, system-ui, sans-serif; text-decoration: none; cursor: pointer; transition: background-color .25s ease, color .25s ease, border-color .25s ease; }
+.rm-contact-copy { border: 1px solid rgba(255, 255, 255, .22); background: transparent; color: #fff; }
+.rm-contact-copy:hover, .rm-contact-copy.rm-done { border-color: rgb(196, 172, 232); color: rgb(196, 172, 232); }
+.rm-contact-btn { border: 0; background: #fff; color: #000; }
+.rm-contact-btn:hover { background: rgb(196, 172, 232); }
+.rm-contact-more { margin-top: 14px; }
+.rm-contact-more a { min-height: 40px; color: rgba(255, 255, 255, .8); border: 1px solid rgba(255, 255, 255, .12); }
+.rm-contact-more a:hover { color: #fff; border-color: rgba(255, 255, 255, .4); }
+.rm-contact-x { position: absolute; top: 14px; right: 14px; width: 36px; height: 36px; border: 0; background: transparent; cursor: pointer; border-radius: 50%; }
+.rm-contact-x span { position: absolute; left: 10px; top: 17px; width: 16px; height: 1.5px; background: rgba(255, 255, 255, .75); }
+.rm-contact-x span:first-child { transform: rotate(45deg); } .rm-contact-x span:last-child { transform: rotate(-45deg); }
+.rm-contact-x:hover span { background: #fff; }
+.rm-contact :focus-visible { outline: 2px solid rgb(196, 172, 232); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .rm-contact, .rm-contact-card { transition: none; } }
+
+/* About: education / experience / tools / contact under her bio (patches/100-about-facts.py); sizes in design px */
+.rm-facts { margin-top: 26px; padding-top: 18px; border-top: 1px solid rgba(255, 255, 255, .14); font-family: Figtree, system-ui, sans-serif; }
+.rm-facts dl { margin: 0; display: grid; grid-template-columns: 74px 1fr; gap: 14px 12px; }
+.rm-facts dt { margin: 0; padding-top: 2px; font-size: 6.6px; line-height: 1.5; letter-spacing: .16em; text-transform: uppercase; color: rgba(255, 255, 255, .5); }
+.rm-facts dd { margin: 0; font-size: 9.4px; line-height: 1.6; color: rgba(255, 255, 255, .78); font-variation-settings: 'wght' 360; }
+.rm-facts b { font-weight: 500; font-variation-settings: 'wght' 520; color: #fff; }
+.rm-facts a { color: #fff; text-decoration: none; border-bottom: 1px solid rgba(196, 172, 232, .55); transition: color .2s ease, border-color .2s ease; pointer-events: auto; }
+.rm-facts a:hover { color: rgb(196, 172, 232); border-color: rgb(196, 172, 232); }
+html[data-v="phone"] .rm-facts { margin-top: 22px; padding-top: 16px; }
+html[data-v="phone"] .rm-facts dl { grid-template-columns: 1fr; gap: 4px; }
+html[data-v="phone"] .rm-facts dt { font-size: 7.6px; padding-top: 10px; }
+html[data-v="phone"] .rm-facts dt:first-child { padding-top: 0; }
+html[data-v="phone"] .rm-facts dd { font-size: 10.6px; }
+
+/* footer (rm.js footer()): sizes in screen px through --rmz (the page zoom) */
+.rm-foot-hidden { visibility: hidden !important; pointer-events: none !important; }
+.rm-footer { position: absolute; z-index: 420; box-sizing: border-box; color: #fff; font-family: Figtree, system-ui, -apple-system, sans-serif; }
+.rm-footer-in { display: flex; align-items: center; justify-content: space-between; gap: calc(24px / var(--rmz, 1));
+  padding: calc(34px / var(--rmz, 1)) calc(44px / var(--rmz, 1)); }
+.rm-footer-id { display: flex; flex-direction: column; gap: calc(4px / var(--rmz, 1)); }
+.rm-footer-id strong { font-weight: 500; font-variation-settings: 'wght' 560; font-size: calc(21px / var(--rmz, 1)); letter-spacing: .01em; line-height: 1.15; }
+.rm-footer-id span { font-size: calc(13.5px / var(--rmz, 1)); color: rgba(255, 255, 255, .78); letter-spacing: .02em; }
+.rm-footer-links { display: flex; gap: calc(10px / var(--rmz, 1)); flex-wrap: wrap; }
+.rm-footer-btn { display: inline-flex; align-items: center; justify-content: center; min-height: calc(44px / var(--rmz, 1)); padding: 0 calc(22px / var(--rmz, 1));
+  border-radius: 999px; font-size: calc(15px / var(--rmz, 1)); font-weight: 500; color: #fff; text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, .55); transition: background-color .25s ease, color .25s ease, border-color .25s ease; }
+.rm-footer-btn:hover { border-color: #fff; background: rgba(255, 255, 255, .12); }
+.rm-footer-btn.rm-solid { background: #fff; color: #2a1d3d; border-color: #fff; }
+.rm-footer-btn.rm-solid:hover { background: rgba(255, 255, 255, .86); }
+.rm-footer-btn:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+html[data-v="phone"] .rm-footer-in { flex-direction: column; align-items: flex-start; gap: calc(20px / var(--rmz, 1)); padding: calc(30px / var(--rmz, 1)) calc(22px / var(--rmz, 1)) calc(34px / var(--rmz, 1)); }
+html[data-v="phone"] .rm-footer-links { width: 100%; }
+html[data-v="phone"] .rm-footer-btn { flex: 1 1 0; }
