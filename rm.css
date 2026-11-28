@@ -2,7 +2,6 @@
 @font-face{font-family:'Figtree';font-style:italic;font-weight:300 900;font-display:swap;src:url(/assets/fonts/figtree-latin-italic.woff2) format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
 @font-face{font-family:'Figtree';font-style:normal;font-weight:300 900;font-display:swap;src:url(/assets/fonts/figtree-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF}
 @font-face{font-family:'Figtree';font-style:normal;font-weight:300 900;font-display:swap;src:url(/assets/fonts/figtree-latin.woff2) format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
-/* Structure for the captured Readymag page markup (own rules; layout semantics matched to the live viewer). */
 html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; }
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
@@ -40,12 +39,8 @@ article.page.page-with-fixeds-sticky-or-mobile .rmwidget { pointer-events: all; 
 .align-left { text-align: left !important; } .align-center { text-align: center !important; } .align-right { text-align: right !important; } .align-justify { text-align: justify !important; }
 a { -webkit-tap-highlight-color: transparent; }
 a.anchor-link { cursor: pointer; }
-
-/* refinements (patches/) */
 .rm-tile-group .rmwidget.widget-shape.has-onhover-animation { opacity: 0; }
 .rm-underlay, .rm-underlay * { pointer-events: none !important; }
-
-/* page arrows (horizontal viewer): small frosted-glass buttons */
 .rm-arrows { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5000; }
 .rm-arrow { position: absolute; top: 50%; width: 46px; height: 46px; margin-top: -23px; display: flex; align-items: center; justify-content: center; pointer-events: all;
   border-radius: 50%; background: rgba(0, 0, 0, .38); -webkit-backdrop-filter: blur(12px) saturate(150%); backdrop-filter: blur(12px) saturate(150%);
@@ -55,20 +50,16 @@ a.anchor-link { cursor: pointer; }
 .rm-arrow svg { width: 9px; height: 17px; overflow: visible; }
 .rm-arrow.left svg { margin-right: 2px; } .rm-arrow.right svg { margin-left: 2px; }
 .rm-arrow polyline { fill: none; stroke: #fff; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-
-/* finish: frosted black top bars, images easing in, accent selection, keyboard focus */
 .rmwidget.widget-shape.rm-navbar { background-color: rgba(0, 0, 0, .62) !important; -webkit-backdrop-filter: blur(18px) saturate(160%); backdrop-filter: blur(18px) saturate(160%);
   box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .08); }
 .rmwidget.rm-rv { opacity: 0; translate: 0 22px; transition: opacity .8s cubic-bezier(.2, .65, .25, 1), translate 1s cubic-bezier(.2, .65, .25, 1); }
 .rmwidget.rm-rv.rm-in { opacity: 1; translate: none; }
 ::selection { background: rgba(128, 91, 182, .9); color: #fff; }
 a:focus-visible { outline: 1px solid rgba(255, 255, 255, .7); outline-offset: 4px; }
-
-/* landing intro: the desk scene, a camera into the laptop, and the project icons on its screen */
 .rm-intro { position: absolute; inset: 0; z-index: 399; overflow: hidden; background: #000; pointer-events: none; }
 #v-phone .rm-intro { z-index: 3; }
 .rm-plane { position: absolute; inset: 0; transform-origin: 0 0; }
-.rm-intro .rm-plane, .rm-intro .rm-icon { will-change: transform; }   /* promoted up front: no hitch on the move's first frame */
+.rm-intro .rm-plane, .rm-intro .rm-icon { will-change: transform; }
 .rm-sway { animation: rm-sway var(--sway-t, 8s) ease-in-out var(--sway-d, 0s) infinite alternate; }
 @keyframes rm-sway { from { rotate: calc(var(--sway-a, 1deg) * -1); } to { rotate: var(--sway-a, 1deg); } }
 .rm-intro-item { position: absolute; }
@@ -79,10 +70,7 @@ a:focus-visible { outline: 1px solid rgba(255, 255, 255, .7); outline-offset: 4p
 .rm-icon { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; pointer-events: auto; background: #0b0b0b; }
 .rm-icon img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .rm-intro-orig { visibility: hidden !important; }
-/* on touch screens the intro must never catch a swipe (it sits outside the page's scroller): fingers scroll through it */
 #v-phone .rm-icon, .rm-intro .rmwidget, .rm-intro .rmwidget * { pointer-events: none !important; }
-
-/* moving between pages: the old page drifts and fades, the new one settles in from the side it comes from */
 @view-transition { navigation: auto; }
 @keyframes rm-out-l { to { opacity: 0; transform: translateX(-5%) scale(.985); } } @keyframes rm-in-r { from { opacity: 0; transform: translateX(6%); } }
 @keyframes rm-out-r { to { opacity: 0; transform: translateX(5%) scale(.985); } } @keyframes rm-in-l { from { opacity: 0; transform: translateX(-6%); } }
@@ -90,20 +78,16 @@ html:active-view-transition-type(forward)::view-transition-old(root) { animation
 html:active-view-transition-type(forward)::view-transition-new(root) { animation: .62s cubic-bezier(.16, .8, .24, 1) .08s both rm-in-r; }
 html:active-view-transition-type(backward)::view-transition-old(root) { animation: .42s cubic-bezier(.4, 0, .2, 1) both rm-out-r; }
 html:active-view-transition-type(backward)::view-transition-new(root) { animation: .62s cubic-bezier(.16, .8, .24, 1) .08s both rm-in-l; }
-
-/* finish: frosted black top bars, images easing in, accent selection, keyboard focus */
 .rmwidget.widget-shape.rm-navbar { background-color: rgba(0, 0, 0, .62) !important; -webkit-backdrop-filter: blur(18px) saturate(160%); backdrop-filter: blur(18px) saturate(160%);
   box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .08); }
 .rmwidget.rm-rv { opacity: 0; translate: 0 22px; transition: opacity .8s cubic-bezier(.2, .65, .25, 1), translate 1s cubic-bezier(.2, .65, .25, 1); }
 .rmwidget.rm-rv.rm-in { opacity: 1; translate: none; }
 ::selection { background: rgba(128, 91, 182, .9); color: #fff; }
 a:focus-visible { outline: 1px solid rgba(255, 255, 255, .7); outline-offset: 4px; }
-
-/* landing intro: the desk scene, a camera into the laptop, and the project icons on its screen */
 .rm-intro { position: absolute; inset: 0; z-index: 399; overflow: hidden; background: #000; pointer-events: none; }
 #v-phone .rm-intro { z-index: 3; }
 .rm-plane { position: absolute; inset: 0; transform-origin: 0 0; }
-.rm-intro .rm-plane, .rm-intro .rm-icon { will-change: transform; }   /* promoted up front: no hitch on the move's first frame */
+.rm-intro .rm-plane, .rm-intro .rm-icon { will-change: transform; }
 .rm-sway { animation: rm-sway var(--sway-t, 8s) ease-in-out var(--sway-d, 0s) infinite alternate; }
 @keyframes rm-sway { from { rotate: calc(var(--sway-a, 1deg) * -1); } to { rotate: var(--sway-a, 1deg); } }
 .rm-intro-item { position: absolute; }
@@ -114,10 +98,7 @@ a:focus-visible { outline: 1px solid rgba(255, 255, 255, .7); outline-offset: 4p
 .rm-icon { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; pointer-events: auto; background: #0b0b0b; }
 .rm-icon img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .rm-intro-orig { visibility: hidden !important; }
-/* on touch screens the intro must never catch a swipe (it sits outside the page's scroller): fingers scroll through it */
 #v-phone .rm-icon, .rm-intro .rmwidget, .rm-intro .rmwidget * { pointer-events: none !important; }
-
-/* horizontal page slide between pages */
 @view-transition { navigation: auto; }
 @keyframes rm-out-l { to { transform: translateX(-100%); } } @keyframes rm-in-r { from { transform: translateX(100%); } }
 @keyframes rm-out-r { to { transform: translateX(100%); } } @keyframes rm-in-l { from { transform: translateX(-100%); } }
@@ -125,8 +106,6 @@ html:active-view-transition-type(forward)::view-transition-old(root) { animation
 html:active-view-transition-type(forward)::view-transition-new(root) { animation: .55s cubic-bezier(.56,.86,.59,1) both rm-in-r; }
 html:active-view-transition-type(backward)::view-transition-old(root) { animation: .55s cubic-bezier(.56,.86,.59,1) both rm-out-r; }
 html:active-view-transition-type(backward)::view-transition-new(root) { animation: .55s cubic-bezier(.56,.86,.59,1) both rm-in-l; }
-
-/* phone menu: full-screen frosted black, large light type, a two-line button that turns into a cross */
 .rm-hide { display: none !important; }
 .rm-menu-btn { position: absolute; top: 8px; right: 3px; width: 40px; height: 40px; z-index: 6001; border: 0; padding: 0; margin: 0; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .rm-menu-btn span { position: absolute; left: 12px; width: 16px; height: 1.4px; border-radius: 1px; background: #fff; transition: transform .5s cubic-bezier(.7, 0, .2, 1), top .5s cubic-bezier(.7, 0, .2, 1); }
@@ -147,9 +126,6 @@ html.rm-menu-open .rm-menu li a { transform: none; transition-delay: calc(140ms 
 .rm-menu-foot { display: flex; justify-content: space-between; gap: 12px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, .12); opacity: 0; transition: opacity .4s ease; }
 html.rm-menu-open .rm-menu-foot { opacity: 1; transition: opacity .6s ease .35s; }
 .rm-menu-foot a { color: rgba(255, 255, 255, .62); text-decoration: none; font-size: 11px; letter-spacing: .03em; }
-
-/* loading screen (landing page, first visit in a session): her flower turning, a thin bar filling in her purple.
-   Fails open: even without the script it fades away after a few seconds. */
 .rm-loader { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; background: #000;
   animation: rm-loader-failsafe .6s ease 6s forwards; }
 @keyframes rm-loader-failsafe { to { opacity: 0; visibility: hidden; } }
@@ -165,8 +141,6 @@ html.rm-menu-open .rm-menu-foot { opacity: 1; transition: opacity .6s ease .35s;
 .rm-intro.rm-arrive { animation: rm-arrive 1.7s cubic-bezier(.16, .8, .24, 1) backwards; }
 @keyframes rm-arrive { from { scale: 1.08; opacity: 0; } }
 @media (min-width: 900px) { .rm-loader-mark { width: 42px; height: 48px; } .rm-loader-bar { width: 96px; } .rm-loader-name { font-size: 11px; } .rm-loader-in { gap: 24px; } }
-
-/* long project pages: a hairline of reading progress under the bar, and a back-to-top button after a few screens */
 .rm-progress { position: absolute; left: 0; right: 0; top: 0; height: 2px; z-index: 5001; pointer-events: none; }
 .rm-progress i { display: block; height: 100%; background: rgb(176, 146, 222); transform-origin: 0 50%; transform: scaleX(0); }
 .rm-totop { position: absolute; right: 18px; bottom: 22px; z-index: 5001; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
@@ -183,32 +157,22 @@ html.rm-menu-open .rm-menu-foot { opacity: 1; transition: opacity .6s ease .35s;
 .rm-navtitle span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #v-phone .rm-navtitle { max-width: 50%; font-size: 9.5px; padding-top: 3px; box-sizing: border-box; }
 @keyframes rm-fade-in { from { opacity: 0; } }
-/* visitors who ask their system for less motion: no page slides, no spinning flower (the intro is skipped in rm.js) */
 @media (prefers-reduced-motion: reduce) {
   @view-transition { navigation: none; }
   .rm-loader-mark, .rm-sway { animation: none; }
   .rmwidget.rm-rv { opacity: 1; translate: none; transition: none; }
 }
-
-/* her link style turns links half-transparent black on hover / tap (and black when "current"): invisible on these dark
-   pages, and on a phone a tap leaves it that way. Hover: her lavender; current: white. Footer links: white, underlined. */
 a[class*="link-style-"]:hover, a[class*="link-style-"]:hover *, a[class*="link-style-"].hover, a[class*="link-style-"].hover * { color: rgb(196, 172, 232) !important; }
 a[class*="link-style-"].current, a[class*="link-style-"].current * { color: inherit !important; background: none !important; }
 .rm-foot a[class*="link-style-"]:hover, .rm-foot a[class*="link-style-"]:hover *, .rm-foot a[class*="link-style-"]:active, .rm-foot a[class*="link-style-"]:active * {
   color: #fff !important; text-decoration: underline !important; text-underline-offset: 3px; }
-
-/* laptop "Scroll to enter" arrow (rm.js setupIntro): drifts down with the words' 1.6 s pulse */
 .rm-hint-arrow { position: absolute; width: 10px; height: 16px; color: #fff; animation: rm-hint 1.6s ease-in infinite; pointer-events: none; }
 .rm-hint-arrow svg { display: block; width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
 @keyframes rm-hint { from { opacity: .35; translate: 0 0; } to { opacity: .95; translate: 0 6px; } }
 @media (prefers-reduced-motion: reduce) { .rm-hint-arrow { animation: none; opacity: .8; } }
-
-/* side arrows stay off her artwork: shown near their edge (laptop pointer), near the end of a page, or on keyboard focus */
 .rm-arrow { opacity: 0; pointer-events: none; transition: opacity .35s ease, transform .3s ease, background-color .3s ease; }
 .rm-arrows.rm-at-end .rm-arrow, .rm-arrows.rm-near-left .rm-arrow.left, .rm-arrows.rm-near-right .rm-arrow.right { opacity: .78; pointer-events: all; }
 .rm-arrows .rm-arrow:hover, .rm-arrow:focus-visible { opacity: 1; pointer-events: all; }
-
-/* contact panel (rm.js openContact): one place for her email, LinkedIn and CV */
 .rm-contact { position: fixed; inset: 0; z-index: 9000; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;
   background: rgba(0, 0, 0, .55); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); opacity: 0; visibility: hidden;
   transition: opacity .35s ease, visibility 0s linear .35s; font-family: Figtree, system-ui, -apple-system, sans-serif; }
@@ -236,8 +200,6 @@ html.rm-contact-open .rm-contact-card { transform: none; }
 .rm-contact-x:hover span { background: #fff; }
 .rm-contact :focus-visible { outline: 2px solid rgb(196, 172, 232); outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) { .rm-contact, .rm-contact-card { transition: none; } }
-
-/* About: education / experience / tools / contact under her bio (patches/100-about-facts.py); sizes in design px */
 .rm-facts { margin-top: 26px; padding-top: 18px; border-top: 1px solid rgba(255, 255, 255, .14); font-family: Figtree, system-ui, sans-serif; }
 .rm-facts dl { margin: 0; display: grid; grid-template-columns: 74px 1fr; gap: 14px 12px; }
 .rm-facts dt { margin: 0; padding-top: 2px; font-size: 6.6px; line-height: 1.5; letter-spacing: .16em; text-transform: uppercase; color: rgba(255, 255, 255, .5); }
@@ -250,8 +212,6 @@ html[data-v="phone"] .rm-facts dl { grid-template-columns: 1fr; gap: 4px; }
 html[data-v="phone"] .rm-facts dt { font-size: 7.6px; padding-top: 10px; }
 html[data-v="phone"] .rm-facts dt:first-child { padding-top: 0; }
 html[data-v="phone"] .rm-facts dd { font-size: 10.6px; }
-
-/* footer (rm.js footer()): sizes in screen px through --rmz (the page zoom) */
 .rm-foot-hidden { visibility: hidden !important; pointer-events: none !important; }
 .rm-footer { position: absolute; z-index: 420; box-sizing: border-box; color: #fff; font-family: Figtree, system-ui, -apple-system, sans-serif; }
 .rm-footer-in { display: flex; align-items: center; justify-content: space-between; gap: calc(24px / var(--rmz, 1));
@@ -270,26 +230,7 @@ html[data-v="phone"] .rm-facts dd { font-size: 10.6px; }
 html[data-v="phone"] .rm-footer-in { flex-direction: column; align-items: flex-start; gap: calc(20px / var(--rmz, 1)); padding: calc(30px / var(--rmz, 1)) calc(22px / var(--rmz, 1)) calc(34px / var(--rmz, 1)); }
 html[data-v="phone"] .rm-footer-links { width: 100%; }
 html[data-v="phone"] .rm-footer-btn { flex: 1 1 0; }
-
-/* landing: her name, role and NID above "Scroll to enter" (rm.js setupIntro); sizes in screen px via --rmz */
-.rm-intro-title::before { content: ''; position: absolute; inset: -40% -22%; z-index: -1; border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(0, 0, 0, .62), rgba(0, 0, 0, .35) 55%, transparent); }
-.rm-intro-title { position: absolute; transform: translateX(-50%); isolation: isolate; display: flex; flex-direction: column; align-items: center; text-align: center;
-  white-space: nowrap; color: #fff; font-family: Figtree, system-ui, -apple-system, sans-serif; pointer-events: none;
-  text-shadow: 0 1px 14px rgba(0, 0, 0, .65); animation: rm-title-in 1.4s cubic-bezier(.16, .8, .24, 1) .25s backwards; }
-.rm-intro-title strong { font-weight: 500; font-variation-settings: 'wght' 560; font-size: calc(30px / var(--rmz, 1)); letter-spacing: .01em; line-height: 1.1; }
-.rm-intro-title span { margin-top: calc(6px / var(--rmz, 1)); font-size: calc(14px / var(--rmz, 1)); color: rgba(255, 255, 255, .82); letter-spacing: .03em; }
-.rm-intro-title em { margin-top: calc(8px / var(--rmz, 1)); font-style: normal; font-size: calc(11px / var(--rmz, 1)); letter-spacing: .16em; text-transform: uppercase;
-  color: rgb(214, 196, 240); padding: calc(4px / var(--rmz, 1)) calc(10px / var(--rmz, 1)); border: 1px solid rgba(214, 196, 240, .45); border-radius: 999px; }
-html[data-v="phone"] .rm-intro-title strong { font-size: calc(26px / var(--rmz, 1)); }
-html[data-v="phone"] .rm-intro-title span { font-size: calc(13px / var(--rmz, 1)); }
-html[data-v="phone"] .rm-intro-title em { font-size: calc(10px / var(--rmz, 1)); letter-spacing: .12em; }
-@keyframes rm-title-in { from { opacity: 0; translate: 0 8px; } }
-@media (prefers-reduced-motion: reduce) { .rm-intro-title { animation: none; } }
-/* footer: the NID line */
 .rm-footer-id em { font-style: normal; font-size: calc(11.5px / var(--rmz, 1)); letter-spacing: .14em; text-transform: uppercase; color: rgba(255, 255, 255, .92); margin-top: calc(4px / var(--rmz, 1)); }
-
-/* About: the NID line under "Hi, I'm Diya." (patches/100-about-facts.py); design px */
 .rm-nid { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 14px; font-family: Figtree, system-ui, sans-serif; }
 .rm-nid b { font-weight: 500; font-variation-settings: 'wght' 520; font-size: 11.5px; color: #fff; letter-spacing: .01em; }
 .rm-nid i { align-self: flex-start; margin-top: 3px; font-style: normal; font-size: 9px; letter-spacing: .03em; font-variation-settings: 'wght' 520; color: rgb(220, 204, 244);
@@ -298,12 +239,7 @@ html[data-v="phone"] .rm-intro-title em { font-size: calc(10px / var(--rmz, 1));
 html[data-v="phone"] .rm-nid b { font-size: 11px; }
 html[data-v="phone"] .rm-nid i { font-size: 8.6px; }
 html[data-v="phone"] .rm-nid u { font-size: 8px; }
-
-/* phones: lighter frosted glass (the blur under the nav bars is redrawn on every scroll frame) */
 html[data-v="phone"] .rmwidget.widget-shape.rm-navbar { -webkit-backdrop-filter: blur(10px) saturate(150%) !important; backdrop-filter: blur(10px) saturate(150%) !important; }
-html[data-v="phone"] .rm-menu { -webkit-backdrop-filter: blur(16px) saturate(140%); backdrop-filter: blur(16px) saturate(140%); }
-
-/* project facts strip (rm.js projectFacts): screen px via --rmz */
 .rm-pfacts { position: absolute; box-sizing: border-box; z-index: 300; font-family: Figtree, system-ui, -apple-system, sans-serif; }
 .rm-pfacts dl { margin: 0; display: flex; gap: calc(36px / var(--rmz, 1)); padding: calc(26px / var(--rmz, 1)) 0;
   border-bottom: 1px solid rgba(255, 255, 255, .12); margin-top: calc(28px / var(--rmz, 1)); margin-bottom: calc(10px / var(--rmz, 1)); }
@@ -314,3 +250,27 @@ html[data-v="phone"] .rm-menu { -webkit-backdrop-filter: blur(16px) saturate(140
 html[data-v="phone"] .rm-pfacts dl { display: grid; grid-template-columns: 1fr 1fr; gap: calc(18px / var(--rmz, 1)) calc(16px / var(--rmz, 1)); padding: calc(20px / var(--rmz, 1)) 0; margin-top: calc(20px / var(--rmz, 1)); }
 html[data-v="phone"] .rm-pfacts dl > div:last-child { grid-column: 1 / -1; }
 html[data-v="phone"] .rm-pfacts dd { font-size: calc(14px / var(--rmz, 1)); }
+.rm-menu { background: #000 !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; padding: 104px 28px 30px; }
+.rm-menu li { padding-bottom: 0; }
+.rm-menu li a { font-size: 26px; font-weight: 500; line-height: 1.75; letter-spacing: 0; gap: 0; transform: none !important; transition: color .2s ease !important; }
+.rm-menu li a:hover span, .rm-menu li a:active span { color: rgb(196, 172, 232); }
+.rm-menu li small { display: none; }
+.rm-menu-foot { border-top: 0; padding-top: 0; }
+.rm-menu-foot a { font-size: 13px; color: rgba(255, 255, 255, .7); letter-spacing: 0; }
+.rm-footer-id span { font-size: calc(14px / var(--rmz, 1)); color: rgba(255, 255, 255, .85); letter-spacing: 0; }
+.rm-footer-links { gap: calc(26px / var(--rmz, 1)); }
+.rm-footer-links a { font-size: calc(16px / var(--rmz, 1)); font-weight: 500; color: #fff; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+.rm-footer-links a:hover { text-decoration-thickness: 2px; }
+html[data-v="phone"] .rm-footer-links { width: auto; }
+.rm-nid { gap: 2px; margin: 4px 0 12px; }
+.rm-nid u { font-size: 8.6px; color: rgba(255, 255, 255, .72); letter-spacing: 0; }
+html[data-v="phone"] .rm-nid u { font-size: 8.6px; }
+.rm-facts { border-top: 0; padding-top: 0; margin-top: 22px; }
+.rm-facts dt { font-size: 8.4px; letter-spacing: 0; text-transform: none; color: rgb(196, 172, 232); padding-top: 1px; }
+html[data-v="phone"] .rm-facts dt { font-size: 9px; }
+.rm-facts a { border-bottom: 0; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.rm-facts-col { position: absolute; z-index: 302; }
+.rm-facts-col .rm-facts { margin-top: 0; }
+.rm-facts-col .rm-facts dl { grid-template-columns: 70px 1fr; }
+.rm-pfacts dl { border-bottom: 0; }
+.rm-pfacts dt { font-size: calc(13px / var(--rmz, 1)); letter-spacing: 0; text-transform: none; color: rgb(196, 172, 232); }
