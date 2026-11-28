@@ -469,7 +469,8 @@
     if (!progBits.length) return;
     const [bar, up] = progBits, max = wrapper.scrollHeight - wrapper.clientHeight;
     bar.firstChild.style.transform = `scaleX(${max > 0 ? wrapper.scrollTop / max : 0})`;
-    up.classList.toggle('rm-on', wrapper.scrollTop > wrapper.clientHeight * 2.5);
+    const footEl = root.querySelector('.rm-footer'), fr = footEl && footEl.getBoundingClientRect();
+    up.classList.toggle('rm-on', wrapper.scrollTop > wrapper.clientHeight * 2.5 && !(fr && fr.top < innerHeight - 40));
     const foot = root.querySelector('.rmwidget[data-id$="df3625"], .rmwidget[data-id$="574b45"]');
     if (foot) {
       const a = article.getBoundingClientRect(), f = a.height / article.clientHeight || 1;
