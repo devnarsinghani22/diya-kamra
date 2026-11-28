@@ -263,16 +263,6 @@
       const im = new Image(); im.alt = t.img.alt || ''; im.src = t.img.getAttribute('src'); a.appendChild(im); iconsEl.appendChild(a); return a;
     });
     if (V === 'phone') article.insertBefore(layer, article.querySelector('.fixed-position-container-top')); else article.appendChild(layer);
-    if (V === 'desk' && !root.querySelector('.rm-hint-arrow')) {
-      const words = [...root.querySelectorAll('.rmwidget.widget-text-v3')].find(w => /^\s*scroll\s*to\s*enter\s*$/i.test(w.textContent));
-      if (words) {
-        let box = words; while (box.parentElement && box.parentElement.classList.contains('animation-container')) box = box.parentElement;
-        const arrow = document.createElement('div'); arrow.className = 'rm-hint-arrow';
-        arrow.innerHTML = '<svg viewBox="0 0 10 16" aria-hidden="true"><path d="M5 1v13M1 10l4 4 4-4"/></svg>';
-        arrow.style.left = (box.offsetWidth / 2 - 5) + 'px'; arrow.style.top = (box.offsetHeight + 3) + 'px';
-        box.appendChild(arrow);
-      }
-    }
     let G = null;
     function measure() {
       const VW = article.clientWidth, VH = article.clientHeight;
