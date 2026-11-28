@@ -186,6 +186,7 @@
       for (const en of entries) {
         const v = en.target;
         if (en.isIntersecting) {
+          if (v.dataset.poster && !v.getAttribute('poster')) v.poster = v.dataset.poster;
           if (!v.src) {
             if (v.hasAttribute('data-autoplay')) { v.muted = true; v.autoplay = true; }
             v.src = v.dataset.src; v.preload = 'auto';
@@ -260,7 +261,7 @@
       t.img.loading = 'eager';
       const a = document.createElement('a'); a.className = 'rm-icon'; a.href = t.href; a.setAttribute('aria-hidden', 'true'); a.tabIndex = -1;
       a.style.width = t.w + 'px'; a.style.height = t.h + 'px';
-      const im = new Image(); im.alt = t.img.alt || ''; im.src = t.img.getAttribute('src'); a.appendChild(im); iconsEl.appendChild(a); return a;
+      const im = new Image(); im.alt = t.img.alt || ''; im.fetchPriority = 'low'; im.decoding = 'async'; im.src = t.img.getAttribute('src'); a.appendChild(im); iconsEl.appendChild(a); return a;
     });
     if (V === 'phone') article.insertBefore(layer, article.querySelector('.fixed-position-container-top')); else article.appendChild(layer);
     let G = null;
@@ -372,7 +373,7 @@
     render();
     intro = {
       variant: V, onScroll: onScrollIntro, measure() { measure(); render(); },
-      images: [...layer.querySelectorAll('img')],
+      images: [...layer.querySelectorAll('.rm-plane img')],
       arrive() { if (P > 0) return; layer.classList.add('rm-arrive'); layer.addEventListener('animationend', () => layer.classList.remove('rm-arrive'), { once: true }); },
       workTop: pos => (pos === cfg.end ? END : pos),
       sync() { if (anim) return; lastY = wrapper.scrollTop; if (lastY >= END - 2) { P = 1; state = 'grid'; } measure(); render(); },
@@ -780,6 +781,7 @@
   function activate(v) {
     V = v; html.dataset.v = v;
     root = document.getElementById('v-' + v);
+    if (!root.firstElementChild) { const t = document.getElementById('t-' + v); if (t) root.appendChild(t.content.cloneNode(true)); }
     article = root.querySelector('article.page');
     wrapper = article.querySelector('.content-scroll-wrapper');
     bounds = article.querySelector('.content-bounds');
@@ -835,14 +837,14 @@
         el.classList.add('rm-done'); if (intro) intro.arrive();
         try { sessionStorage.setItem('rm-seen', '1'); } catch (e) {}
         setTimeout(() => el.remove(), 1000);
-      }, 320);
+      }, 180);
     };
     (function tick() {
       if (ended) return;
       const frac = list.length ? list.filter(im => im.complete).length / list.length : 1, t = performance.now() - t0;
       shown += (Math.max(frac, Math.min(0.9, t / 4000)) - shown) * 0.15;
       bar.style.setProperty('--p', shown.toFixed(3));
-      if ((frac >= 1 && t > 1200) || t > 5000) finish(); else requestAnimationFrame(tick);
+      if ((frac >= 1 && t > 450) || t > 5000) finish(); else requestAnimationFrame(tick);
     })();
     setTimeout(finish, 5600);
   })();

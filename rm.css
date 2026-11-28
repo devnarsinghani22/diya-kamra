@@ -130,7 +130,7 @@ html.rm-menu-open .rm-menu-foot { opacity: 1; transition: opacity .6s ease .35s;
   animation: rm-loader-failsafe .6s ease 6s forwards; }
 @keyframes rm-loader-failsafe { to { opacity: 0; visibility: hidden; } }
 .rm-noload .rm-loader { display: none; }
-.rm-loader.rm-done { opacity: 0; visibility: hidden; animation: none; transition: opacity .8s ease, visibility 0s linear .8s; }
+.rm-loader.rm-done { opacity: 0; visibility: hidden; animation: none; transition: opacity .5s ease, visibility 0s linear .5s; }
 .rm-loader-in { display: flex; flex-direction: column; align-items: center; gap: 20px; transition: transform .8s cubic-bezier(.2, .7, .2, 1); }
 .rm-loader.rm-done .rm-loader-in { transform: scale(.94); }
 .rm-loader-mark { width: 34px; height: 40px; object-fit: contain; animation: rm-spin 9s linear infinite; }
